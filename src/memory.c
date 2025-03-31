@@ -1,14 +1,12 @@
 #include <cJSON.h>
-#include <main.h>
+#include <module_base.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <tools.h>
 
-static size_t module_id;
-
-static void update_memory_usage (uint64_t *used, double *percent) {
+static void get_usage (uint64_t *used, double *percent) {
     FILE *fp;
     char buffer[BUF_SIZE];
     char *token;
@@ -39,18 +37,17 @@ static void update_memory_usage (uint64_t *used, double *percent) {
     *used *= 1024;
 }
 
-static void memory_update () {
+static void update () {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }
 
     cJSON *json = cJSON_CreateObject ();
 
-    // MOD_SZIE只有16，故name只有2位，在此，随便给几位
-    char name_buffer[4 + 1];
-    snprintf (name_buffer, sizeof (name_buffer), "%ld", module_id);
+    char name[] = "A";
+    *name += module_id;
     // 添加键值对到JSON对象
-    cJSON_AddStringToObject (json, "name", name_buffer);
+    cJSON_AddStringToObject (json, "name", name);
     cJSON_AddFalseToObject (json, "separator");
     cJSON_AddNumberToObject (json, "separator_block_width", 0);
     cJSON_AddStringToObject (json, "markup", "pango");
@@ -60,7 +57,7 @@ static void memory_update () {
     char output_str[] = "󰍛\u20040.00K";
     uint64_t used;
     double usage;
-    update_memory_usage (&used, &usage);
+    get_usage (&used, &usage);
     format_storage_units (output_str + 7, used);
     cJSON_AddStringToObject (json, "full_text", output_str);
 
@@ -79,11 +76,10 @@ static void memory_update () {
     cJSON_Delete (json);
 }
 
-void memory_init (int epoll_fd) {
+void init_memory (int epoll_fd) {
     (void) epoll_fd;
-    module_id = modules_cnt++;
-    modules[module_id].output = NULL;
-    modules[module_id].update = memory_update;
+    init_base();
+
+    modules[module_id].update = update;
     modules[module_id].sec = true;
-    modules[module_id].fds = NULL;
 }

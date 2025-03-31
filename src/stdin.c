@@ -1,13 +1,12 @@
+#include <cJSON.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <main.h>
+#include <module_base.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
 #include <unistd.h>
-
-static size_t module_id;
 
 // 设置非阻塞 IO
 static void set_nonblocking (int fd) {
@@ -23,13 +22,37 @@ static void set_nonblocking (int fd) {
 }
 
 // 解析 i3bar 输入
-static void parse_i3bar_input (const char *input) {
-    // i3bar 输入通常是 JSON 格式
+static void parse_input (const char *input) {
     fputs (input, stderr);
+    const char *idx = input;
+    while (*idx && *idx != '{')
+        idx++;
+    if (!*idx)
+        return;
+    cJSON *root = cJSON_Parse (idx);
+    if (root == NULL) {
+        const char *error_ptr = cJSON_GetErrorPtr ();
+        if (error_ptr != NULL) {
+            fprintf (stderr, "Error before: %s\n", error_ptr);
+        }
+        exit (EXIT_FAILURE);
+    }
+    cJSON *name = cJSON_GetObjectItemCaseSensitive (root, "name");
+    cJSON *button = cJSON_GetObjectItemCaseSensitive (root, "button");
+    // cJSON *event = cJSON_GetObjectItemCaseSensitive (root, "event");
+    uint64_t btn_nr = 0;
+    if (cJSON_IsNumber (button))
+        btn_nr = button->valueint;
+    if (btn_nr != 0 && cJSON_IsString (name) && name->valuestring != NULL) {
+        uint64_t nr = name->valuestring[0] - 'A';
+        if (modules[nr].alter)
+            modules[nr].alter (btn_nr);
+    }
+    cJSON_Delete (root);
 }
 
 // 处理标准输入事件
-static void handle_stdin_event () {
+static void update () {
     char buffer[BUF_SIZE];
     ssize_t n = read (modules[module_id].fds[0], buffer, BUF_SIZE - 1);
 
@@ -46,11 +69,11 @@ static void handle_stdin_event () {
     }
 
     buffer[n] = '\0';
-    parse_i3bar_input (buffer);
+    parse_input (buffer);
 }
 
-void stdin_init (int epoll_fd) {
-    module_id = modules_cnt++;
+void init_stdin (int epoll_fd) {
+    init_base ();
 
     // 从某种意义上讲，stdin 是实时的，因此下面的代码是在注册 epoll
     set_nonblocking (STDIN_FILENO);
@@ -63,10 +86,8 @@ void stdin_init (int epoll_fd) {
         exit (EXIT_FAILURE);
     }
 
-    modules[module_id].sec = false;
     modules[module_id].fds = malloc (sizeof (int) * 2);
     modules[module_id].fds[0] = STDIN_FILENO;
     modules[module_id].fds[1] = -1;
-    modules[module_id].update = handle_stdin_event;
-    modules[module_id].output = NULL;
+    modules[module_id].update = update;
 }

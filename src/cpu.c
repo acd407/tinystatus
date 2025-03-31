@@ -1,15 +1,17 @@
 #include <cJSON.h>
-#include <main.h>
 #include <math.h>
+#include <module_base.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <tools.h>
+
+#define PACKAGE "/sys/class/powercap/intel-rapl:0/energy_uj"
+#define CORE "/sys/class/powercap/intel-rapl:0:0/energy_uj"
 
 // 模块不可重入，因为此模块统计的就是所有CPU的使用率
 
-static size_t module_id;
-
-static double get_cpu_usage () {
+static double get_usage () {
     static uint64_t prev_idle = 0, prev_total = 0;
     char buffer[BUF_SIZE];
     uint64_t idx, nice, system, idle, iowait, irq, softirq;
@@ -50,27 +52,73 @@ static double get_cpu_usage () {
     return cpu_usage;
 }
 
-static void cpu_update () {
+static double get_power () {
+    static uint64_t previous_energy = 0;
+
+    FILE *file = fopen (PACKAGE, "r");
+    if (!file) {
+        perror ("cpu_power: fopen");
+        exit (EXIT_FAILURE);
+    }
+    uint64_t energy;
+    if (EOF == fscanf (file, "%lu", &energy)) {
+        perror ("cpu_power: fscanf");
+        exit (EXIT_FAILURE);
+    }
+    fclose (file);
+
+    if (!previous_energy)
+        previous_energy = energy;
+    uint64_t energy_diff = energy - previous_energy;
+    double power = (double) energy_diff / 1e6;
+
+    previous_energy = energy;
+    return power;
+}
+
+static void alter (uint64_t btn) {
+    switch (btn) {
+    case 3: // right button
+        modules[module_id].state++;
+        modules[module_id].state %= 2;
+        break;
+    default:
+        return;
+    }
+    modules[module_id].update ();
+    output ();
+}
+
+static void update () {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }
     cJSON *json = cJSON_CreateObject ();
 
-    // MOD_SZIE只有16，故name只有2位，在此，随便给几位
-    char name_buffer[4 + 1];
-    snprintf (name_buffer, sizeof (name_buffer), "%ld", module_id);
+    char name[] = "A";
+    *name += module_id;
     // 添加键值对到JSON对象
-    cJSON_AddStringToObject (json, "name", name_buffer);
+    cJSON_AddStringToObject (json, "name", name);
     cJSON_AddFalseToObject (json, "separator");
     cJSON_AddNumberToObject (json, "separator_block_width", 0); // 添加数字 0
     cJSON_AddStringToObject (json, "markup", "pango");
 
-    char speed[] = "󰾆\u200422.3%";
-    double usage = get_cpu_usage ();
-    snprintf (
-        speed, sizeof (speed), "󰾆\u2004%4.*f%%", usage >= 10 ? 1 : 2, usage
-    );
-    cJSON_AddStringToObject (json, "full_text", speed);
+    double usage = get_usage ();
+    char output_str[] = "󰾆\u200422.3%";
+    if (modules[module_id].state) {
+        double power = get_power ();
+        snprintf (
+            output_str, sizeof (output_str), "󰾆\u2004%4.*fW",
+            power >= 10 ? 1 : 2, power
+        );
+    } else {
+        snprintf (
+            output_str, sizeof (output_str), "󰾆\u2004%4.*f%%",
+            usage >= 10 ? 1 : 2, usage
+        );
+    }
+    cJSON_AddStringToObject (json, "full_text", output_str);
+
     char *colors[] = {IDLE, WARNING, CRITICAL};
     char *color = colors[0];
     if (usage > 50)
@@ -86,11 +134,11 @@ static void cpu_update () {
     cJSON_Delete (json);
 }
 
-void cpu_init (int epoll_fd) {
+void init_cpu (int epoll_fd) {
     (void) epoll_fd;
-    module_id = modules_cnt++;
-    modules[module_id].output = NULL;
-    modules[module_id].update = cpu_update;
+    init_base ();
+
+    modules[module_id].alter = alter;
+    modules[module_id].update = update;
     modules[module_id].sec = true;
-    modules[module_id].fds = NULL;
 }

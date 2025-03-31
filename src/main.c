@@ -13,13 +13,13 @@ size_t modules_cnt;
 
 static void init (int epoll_fd) { // 注册的顺序，决定输出的顺序
     modules_cnt = 0;
-    network_init (epoll_fd);
-    memory_init (epoll_fd);
-    cpu_init (epoll_fd);
-    date_init (epoll_fd);
+    init_network (epoll_fd);
+    init_memory (epoll_fd);
+    init_cpu (epoll_fd);
+    init_date (epoll_fd);
 
-    timer_init (epoll_fd); // 放到后面，因为 timer 初始化完成后要进行一次 output
-    stdin_init (epoll_fd);
+    init_stdin (epoll_fd);
+    init_timer (epoll_fd); // 放到后面，因为 timer 初始化完成后要进行一次 output
 }
 
 int main () {

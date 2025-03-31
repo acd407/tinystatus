@@ -42,4 +42,5 @@ void output () {
         }
     }
     puts ("],"); // 需要一个换行，puts隐含了
+    fflush (stdout);
 }

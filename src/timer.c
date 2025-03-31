@@ -1,4 +1,4 @@
-#include <main.h>
+#include <module_base.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,8 +6,6 @@
 #include <sys/timerfd.h>
 #include <tools.h>
 #include <unistd.h>
-
-static size_t module_id;
 
 static int create_timer () {
     int timer_fd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK);
@@ -30,29 +28,28 @@ static int create_timer () {
     return timer_fd;
 }
 
-static void update () {
+static void sec_update_all () {
     // 更新所有需要每秒更新的模块
     for (size_t i = 0; i < modules_cnt; i++)
         if (modules[i].sec)
             modules[i].update ();
 }
 
-static void timer_update () {
+static void update () {
     uint64_t expirations;
     ssize_t s =
         read (modules[module_id].fds[0], &expirations, sizeof (uint64_t));
-    if (s != sizeof (uint64_t)) {
+    if (s == -1) {
         perror ("read timerfd");
         exit (EXIT_FAILURE);
     }
 
-    update ();
+    sec_update_all ();
     output ();
-    fflush (stdout);
 }
 
-void timer_init (int epoll_fd) {
-    module_id = modules_cnt++;
+void init_timer (int epoll_fd) {
+    init_base();
 
     // 从某种意义上讲，timer 是实时的，因此下面的代码是在注册 epoll
     int timer_fd = create_timer ();
@@ -65,14 +62,11 @@ void timer_init (int epoll_fd) {
         exit (EXIT_FAILURE);
     }
 
-    modules[module_id].sec = false; // 避免递归
     modules[module_id].fds = malloc (sizeof (int) * 2);
     modules[module_id].fds[0] = timer_fd;
     modules[module_id].fds[1] = -1;
-    modules[module_id].update = timer_update;
-    modules[module_id].output = NULL;
+    modules[module_id].update = update;
 
-    update ();
+    sec_update_all ();
     output ();
-    fflush (stdout);
 }
