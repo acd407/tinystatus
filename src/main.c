@@ -1,3 +1,4 @@
+#include <cpu.h>
 #include <errno.h>
 #include <main.h>
 #include <network.h>
@@ -8,14 +9,15 @@
 #include <timer.h>
 #include <unistd.h>
 
-#define MAX_EVENTS 10
+#define MAX_EVENTS 16
 
 module_t modules[MOD_SIZE];
 size_t modules_cnt;
 
-static void init (int epoll_fd) { // 调整注册的顺序，实现输出的顺序
+static void init (int epoll_fd) { // 注册的顺序，决定输出的顺序
     modules_cnt = 0;
     network_init (epoll_fd);
+    cpu_init (epoll_fd);
     timer_init (epoll_fd);
     stdin_init (epoll_fd);
 }
@@ -41,11 +43,8 @@ int main () {
             perror ("epoll_wait");
             exit (EXIT_FAILURE);
         }
-        for (int i = 0; i < nfds; i++) {
-            // fprintf (stderr, "call %ld update\n", events[i].data.u64);
-            // fflush (stderr);
+        for (int i = 0; i < nfds; i++)
             modules[events[i].data.u64].update ();
-        }
     }
 
     for (size_t i = 0; i < modules_cnt; i++) {

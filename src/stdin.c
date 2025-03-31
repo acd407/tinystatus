@@ -37,6 +37,7 @@ static void handle_stdin_event () {
     if (n == -1) {
         if (errno != EAGAIN) {
             perror ("read stdin");
+            exit (EXIT_FAILURE);
         }
         return;
     } else if (n == 0) {
@@ -52,6 +53,7 @@ static void handle_stdin_event () {
 void stdin_init (int epoll_fd) {
     module_id = modules_cnt++;
 
+    // 从某种意义上讲，stdin 是实时的，因此下面的代码是在注册 epoll
     set_nonblocking (STDIN_FILENO);
 
     struct epoll_event stdin_event;

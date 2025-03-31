@@ -6,7 +6,7 @@
 #include <sys/timerfd.h>
 #include <timer.h>
 #include <unistd.h>
-#include <utils.h>
+#include <tools.h>
 
 static size_t module_id;
 
@@ -31,55 +31,35 @@ static int create_timer () {
     return timer_fd;
 }
 
-static void sec_update () {
-    for (size_t i = 0; i < modules_cnt; i++)
-        if (modules[i].sec) {
-            // fprintf (stderr, "call %ld update\n", i);
-            // fflush (stderr);
-            modules[i].update ();
-        }
-}
-
-static void output () {
-    putchar ('[');
-    int output_modules_cnt = 0;
-    for (size_t i = 0; i < modules_cnt; i++) {
-        if (modules[i].output) {
-            if (output_modules_cnt > 0)
-                putchar (',');
-            fputs (modules[i].output, stdout);
-            output_modules_cnt++;
-        }
-    }
-    puts ("],"); // 需要一个换行，puts隐含了
-}
-
 static void timer_update () {
     uint64_t expirations;
     ssize_t s =
         read (modules[module_id].fds[0], &expirations, sizeof (uint64_t));
     if (s != sizeof (uint64_t)) {
-        perror (__FILE__ ": read timerfd");
-        return;
+        perror ("read timerfd");
+        exit (EXIT_FAILURE);
     }
 
-    sec_update ();
-    output ();
+    // 更新所有需要每秒更新的模块
+    for (size_t i = 0; i < modules_cnt; i++)
+        if (modules[i].sec)
+            modules[i].update ();
 
+    output ();
     fflush (stdout);
 }
 
 void timer_init (int epoll_fd) {
     module_id = modules_cnt++;
 
-    // 创建并添加计时器到 epoll
+    // 从某种意义上讲，timer 是实时的，因此下面的代码是在注册 epoll
     int timer_fd = create_timer ();
 
     struct epoll_event timer_event;
     timer_event.events = EPOLLIN | EPOLLET;
     timer_event.data.u64 = module_id;
     if (epoll_ctl (epoll_fd, EPOLL_CTL_ADD, timer_fd, &timer_event) == -1) {
-        perror (__FILE__ ": epoll_ctl timer");
+        perror ("epoll_ctl timer");
         exit (EXIT_FAILURE);
     }
 
