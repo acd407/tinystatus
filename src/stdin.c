@@ -2,7 +2,6 @@
 #include <fcntl.h>
 #include <main.h>
 #include <stdbool.h>
-#include <stdin.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/epoll.h>

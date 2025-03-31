@@ -1,6 +1,5 @@
 #include <cJSON.h>
 #include <main.h>
-#include <network.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -87,14 +86,14 @@ static void network_update () {
 
     // 󰈀: 4 byte
     // \u2004: 3 byte
-    char speed[] = "󰈀\u20040.00K 0.00K";
+    char output_str[] = "󰈀\u20040.00K 0.00K";
     uint64_t rx, tx;
     get_network_rate (&rx, &tx);
-    format_storage_units (speed + 7, tx);
+    format_storage_units (output_str + 7, tx);
     // format_storage_units 会调用 snprintf，将 speed[12] 置为\0
-    speed[12] = ' ';
-    format_storage_units (speed + 13, rx);
-    cJSON_AddStringToObject (json, "full_text", speed);
+    output_str[12] = ' ';
+    format_storage_units (output_str + 13, rx);
+    cJSON_AddStringToObject (json, "full_text", output_str);
 
     // 将JSON对象转换为字符串
     modules[module_id].output = cJSON_PrintUnformatted (json);

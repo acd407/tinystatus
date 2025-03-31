@@ -4,9 +4,8 @@
 #include <stdlib.h>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
-#include <timer.h>
-#include <unistd.h>
 #include <tools.h>
+#include <unistd.h>
 
 static size_t module_id;
 
@@ -31,6 +30,13 @@ static int create_timer () {
     return timer_fd;
 }
 
+static void update () {
+    // 更新所有需要每秒更新的模块
+    for (size_t i = 0; i < modules_cnt; i++)
+        if (modules[i].sec)
+            modules[i].update ();
+}
+
 static void timer_update () {
     uint64_t expirations;
     ssize_t s =
@@ -40,11 +46,7 @@ static void timer_update () {
         exit (EXIT_FAILURE);
     }
 
-    // 更新所有需要每秒更新的模块
-    for (size_t i = 0; i < modules_cnt; i++)
-        if (modules[i].sec)
-            modules[i].update ();
-
+    update ();
     output ();
     fflush (stdout);
 }
@@ -69,4 +71,8 @@ void timer_init (int epoll_fd) {
     modules[module_id].fds[1] = -1;
     modules[module_id].update = timer_update;
     modules[module_id].output = NULL;
+
+    update ();
+    output ();
+    fflush (stdout);
 }

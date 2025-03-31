@@ -1,12 +1,9 @@
-#include <cpu.h>
 #include <errno.h>
 #include <main.h>
-#include <network.h>
-#include <stdin.h>
+#include <modules.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
-#include <timer.h>
 #include <unistd.h>
 
 #define MAX_EVENTS 16
@@ -17,8 +14,11 @@ size_t modules_cnt;
 static void init (int epoll_fd) { // 注册的顺序，决定输出的顺序
     modules_cnt = 0;
     network_init (epoll_fd);
+    memory_init (epoll_fd);
     cpu_init (epoll_fd);
-    timer_init (epoll_fd);
+    date_init (epoll_fd);
+
+    timer_init (epoll_fd); // 放到后面，因为 timer 初始化完成后要进行一次 output
     stdin_init (epoll_fd);
 }
 
