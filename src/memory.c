@@ -81,5 +81,5 @@ void init_memory (int epoll_fd) {
     init_base();
 
     modules[module_id].update = update;
-    modules[module_id].sec = true;
+    modules[module_id].sec = 2;
 }

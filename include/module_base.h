@@ -14,6 +14,6 @@ static void init_base () {
     modules[module_id].alter = NULL;
     modules[module_id].output = NULL;
     modules[module_id].fds = NULL;
-    modules[module_id].sec = false;
+    modules[module_id].sec = 0;
     modules[module_id].state = 0;
 }

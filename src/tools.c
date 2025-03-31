@@ -29,15 +29,14 @@ void output () {
     int output_modules_cnt = 0;
     for (size_t i = 0; i < modules_cnt; i++) {
         if (modules[i].output) {
-            if (output_modules_cnt > 0) {
+            if (output_modules_cnt > 0)
                 putchar (',');
-                fputs (
-                    "{\"full_text\":\" \",\"separator\":false,"
-                    "\"separator_block_width\":0,\"markup\":\"pango\"},",
-                    stdout
-                );
-            }
             fputs (modules[i].output, stdout);
+            fputs (
+                ",{\"full_text\":\" \",\"separator\":false,"
+                "\"separator_block_width\":0,\"markup\":\"pango\"}",
+                stdout
+            );
             output_modules_cnt++;
         }
     }

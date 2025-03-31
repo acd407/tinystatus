@@ -111,6 +111,6 @@ void init_network (int epoll_fd) {
     init_base ();
 
     modules[module_id].update = update;
-    modules[module_id].sec = true;
+    modules[module_id].sec = 1;
     update ();
 }

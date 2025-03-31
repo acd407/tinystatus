@@ -140,5 +140,5 @@ void init_cpu (int epoll_fd) {
 
     modules[module_id].alter = alter;
     modules[module_id].update = update;
-    modules[module_id].sec = true;
+    modules[module_id].sec = 1;
 }

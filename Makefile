@@ -12,7 +12,7 @@ DEPENDS = $(OBJECTS:.o=.d)
 CFLAGS += -Iinclude $(shell pkg-config --cflags libcjson)
 LDFLAGS += $(shell pkg-config --libs libcjson) -lm
 
-EXEC = i3status
+EXEC = tinystatus
 
 all: $(EXEC)
 

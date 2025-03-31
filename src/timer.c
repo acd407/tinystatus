@@ -28,14 +28,8 @@ static int create_timer () {
     return timer_fd;
 }
 
-static void sec_update_all () {
-    // 更新所有需要每秒更新的模块
-    for (size_t i = 0; i < modules_cnt; i++)
-        if (modules[i].sec)
-            modules[i].update ();
-}
-
 static void update () {
+    static uint64_t counter = 0;
     uint64_t expirations;
     ssize_t s =
         read (modules[module_id].fds[0], &expirations, sizeof (uint64_t));
@@ -43,13 +37,16 @@ static void update () {
         perror ("read timerfd");
         exit (EXIT_FAILURE);
     }
+    counter += expirations;
 
-    sec_update_all ();
+    for (size_t i = 0; i < modules_cnt; i++)
+        if (modules[i].sec && counter % modules[i].sec == 0)
+            modules[i].update ();
     output ();
 }
 
 void init_timer (int epoll_fd) {
-    init_base();
+    init_base ();
 
     // 从某种意义上讲，timer 是实时的，因此下面的代码是在注册 epoll
     int timer_fd = create_timer ();
@@ -67,6 +64,8 @@ void init_timer (int epoll_fd) {
     modules[module_id].fds[1] = -1;
     modules[module_id].update = update;
 
-    sec_update_all ();
+    for (size_t i = 0; i < modules_cnt; i++)
+        if (modules[i].sec)
+            modules[i].update ();
     output ();
 }
