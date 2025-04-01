@@ -38,7 +38,7 @@ static int create_inotify () {
     return inotify_fd;
 }
 
-static int read_brightness_value () {
+static int read_brightness () {
     char buffer[32];
     // 使用 pread 避免改变文件偏移量
     ssize_t len =
@@ -76,11 +76,12 @@ static void update () {
         exit (EXIT_FAILURE);
     }
     // 处理事件
-    uint64_t brightness_val = read_brightness_value () * 100 / 255;
+    uint64_t brightness = read_brightness () * 100 / 255;
+    brightness = (brightness + 1) / 5 * 5;
     char output_str[] = "\u2004100%";
     snprintf (
         output_str, sizeof (output_str), "\u2004%*ld%%",
-        brightness_val == 100 ? 3 : 2, brightness_val
+        brightness == 100 ? 3 : 2, brightness
     );
     cJSON_AddStringToObject (json, "full_text", output_str);
 

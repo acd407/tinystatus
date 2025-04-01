@@ -17,10 +17,10 @@ uint64_t get_volume (snd_mixer_t *handle) {
     for (elem = snd_mixer_first_elem (handle); elem;
          elem = snd_mixer_elem_next (elem)) {
         if (snd_mixer_selem_is_active (elem)) {
-            int muted = false; // 默认代表未静音
+            int unmuted = true; // 默认代表未静音
             if (snd_mixer_selem_has_playback_switch (elem)) {
                 snd_mixer_selem_get_playback_switch (
-                    elem, SND_MIXER_SCHN_FRONT_LEFT, &muted
+                    elem, SND_MIXER_SCHN_FRONT_LEFT, &unmuted
                 );
             }
             long volume, min, max;
@@ -28,7 +28,7 @@ uint64_t get_volume (snd_mixer_t *handle) {
             snd_mixer_selem_get_playback_volume (
                 elem, SND_MIXER_SCHN_FRONT_LEFT, &volume
             );
-            return muted ? 0 : (volume - min) * 100 / (max - min);
+            return unmuted ? (volume - min) * 100 / (max - min) : 0;
         }
     }
     return 0;
@@ -51,6 +51,7 @@ static void update () {
     cJSON_AddStringToObject (json, "color", IDLE);
 
     uint64_t volume = get_volume (modules[module_id].data.ptr);
+    volume = (volume + 1) / 5 * 5;
     char output_str[] = "󰕾\u2004INF\0";
     if (volume == 0) {
         snprintf (output_str, sizeof (output_str), "󰝟");
