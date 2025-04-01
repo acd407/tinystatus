@@ -40,13 +40,13 @@ static void update () {
     counter += expirations;
 
     for (size_t i = 0; i < modules_cnt; i++)
-        if (modules[i].sec && counter % modules[i].sec == 0)
+        if (modules[i].interval && counter % modules[i].interval == 0)
             modules[i].update ();
     output ();
 }
 
 void init_timer (int epoll_fd) {
-    init_base ();
+    INIT_BASE ();
 
     // 从某种意义上讲，timer 是实时的，因此下面的代码是在注册 epoll
     int timer_fd = create_timer ();
@@ -65,7 +65,7 @@ void init_timer (int epoll_fd) {
     modules[module_id].update = update;
 
     for (size_t i = 0; i < modules_cnt; i++)
-        if (modules[i].sec)
+        if (modules[i].interval)
             modules[i].update ();
     output ();
 }

@@ -9,8 +9,6 @@
 #define PACKAGE "/sys/class/powercap/intel-rapl:0/energy_uj"
 #define CORE "/sys/class/powercap/intel-rapl:0:0/energy_uj"
 
-// 模块不可重入，因为此模块统计的就是所有CPU的使用率
-
 static double get_usage () {
     static uint64_t prev_idle = 0, prev_total = 0;
     char buffer[BUF_SIZE];
@@ -97,10 +95,10 @@ static void update () {
 
     char name[] = "A";
     *name += module_id;
-    // 添加键值对到JSON对象
+
     cJSON_AddStringToObject (json, "name", name);
     cJSON_AddFalseToObject (json, "separator");
-    cJSON_AddNumberToObject (json, "separator_block_width", 0); // 添加数字 0
+    cJSON_AddNumberToObject (json, "separator_block_width", 0);
     cJSON_AddStringToObject (json, "markup", "pango");
 
     double usage = get_usage ();
@@ -127,18 +125,16 @@ static void update () {
         color = colors[2];
     cJSON_AddStringToObject (json, "color", color);
 
-    // 将JSON对象转换为字符串
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
-    // 删除JSON对象并释放内存
     cJSON_Delete (json);
 }
 
 void init_cpu (int epoll_fd) {
     (void) epoll_fd;
-    init_base ();
+    INIT_BASE ();
 
     modules[module_id].alter = alter;
     modules[module_id].update = update;
-    modules[module_id].sec = 1;
+    modules[module_id].interval = 1;
 }

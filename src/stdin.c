@@ -51,7 +51,6 @@ static void parse_input (const char *input) {
     cJSON_Delete (root);
 }
 
-// 处理标准输入事件
 static void update () {
     char buffer[BUF_SIZE];
     ssize_t n = read (modules[module_id].fds[0], buffer, BUF_SIZE - 1);
@@ -73,7 +72,7 @@ static void update () {
 }
 
 void init_stdin (int epoll_fd) {
-    init_base ();
+    INIT_BASE ();
 
     // 从某种意义上讲，stdin 是实时的，因此下面的代码是在注册 epoll
     set_nonblocking (STDIN_FILENO);

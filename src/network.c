@@ -7,10 +7,6 @@
 #include <string.h>
 #include <tools.h>
 
-// 此模块不支持重入，
-// 它统计的是所有ether和wlan接口的流量，本身就不应该重入
-
-// 仅仅使用每秒更新，故此函数不会被外部调用
 static void get_rate (uint64_t *rx, uint64_t *tx) {
     static uint64_t prev_rx = 0, prev_tx = 0;
 
@@ -79,7 +75,7 @@ static void update () {
 
     char name[] = "A";
     *name += module_id;
-    // 添加键值对到JSON对象
+
     cJSON_AddStringToObject (json, "name", name);
     cJSON_AddStringToObject (json, "color", IDLE);
     cJSON_AddFalseToObject (json, "separator");
@@ -98,19 +94,16 @@ static void update () {
     format_storage_units (output_str + 15, rx);
     cJSON_AddStringToObject (json, "full_text", output_str);
 
-    // 将JSON对象转换为字符串
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
-    // 删除JSON对象并释放内存
     cJSON_Delete (json);
 }
 
-// 仅仅使用每秒更新，不实时监听其他文件
 void init_network (int epoll_fd) {
     (void) epoll_fd;
-    init_base ();
+    INIT_BASE ();
 
     modules[module_id].update = update;
-    modules[module_id].sec = 1;
+    modules[module_id].interval = 1;
     update ();
 }

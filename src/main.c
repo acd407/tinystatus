@@ -13,6 +13,7 @@ size_t modules_cnt;
 
 static void init (int epoll_fd) { // 注册的顺序，决定输出的顺序
     modules_cnt = 0;
+    init_volume (epoll_fd);
     init_network (epoll_fd);
     init_memory (epoll_fd);
     init_cpu (epoll_fd);

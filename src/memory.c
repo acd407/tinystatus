@@ -46,7 +46,7 @@ static void update () {
 
     char name[] = "A";
     *name += module_id;
-    // 添加键值对到JSON对象
+
     cJSON_AddStringToObject (json, "name", name);
     cJSON_AddFalseToObject (json, "separator");
     cJSON_AddNumberToObject (json, "separator_block_width", 0);
@@ -69,17 +69,15 @@ static void update () {
         color = colors[2];
     cJSON_AddStringToObject (json, "color", color);
 
-    // 将JSON对象转换为字符串
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
-    // 删除JSON对象并释放内存
     cJSON_Delete (json);
 }
 
 void init_memory (int epoll_fd) {
     (void) epoll_fd;
-    init_base();
+    INIT_BASE();
 
     modules[module_id].update = update;
-    modules[module_id].sec = 2;
+    modules[module_id].interval = 2;
 }
