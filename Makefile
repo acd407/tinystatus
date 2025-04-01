@@ -1,6 +1,11 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -MMD -MP
-LDFLAGS = -ljson-c
+EXEC = tinystatus
+CFLAGS = -Wall -Wextra -MMD -MP -Iinclude
+LDFLAGS = -lm -s
+
+CFLAGS += $(shell pkg-config --cflags libcjson)
+LDFLAGS += $(shell pkg-config --libs libcjson)
+LDFLAGS += $(shell pkg-config --libs alsa)
 
 SRC_DIR = src
 OBJ_DIR = obj
@@ -8,11 +13,6 @@ OBJ_DIR = obj
 SOURCES = $(wildcard $(SRC_DIR)/*.c)
 OBJECTS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SOURCES))
 DEPENDS = $(OBJECTS:.o=.d)
-
-CFLAGS += -Iinclude $(shell pkg-config --cflags libcjson)
-LDFLAGS += $(shell pkg-config --libs libcjson) -lm
-
-EXEC = tinystatus
 
 all: $(EXEC)
 
