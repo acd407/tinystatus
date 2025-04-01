@@ -21,39 +21,9 @@ static void set_nonblocking (int fd) {
     }
 }
 
-// 解析 i3bar 输入
-static void parse_input (const char *input) {
-    fputs (input, stderr);
-    const char *idx = input;
-    while (*idx && *idx != '{')
-        idx++;
-    if (!*idx)
-        return;
-    cJSON *root = cJSON_Parse (idx);
-    if (root == NULL) {
-        const char *error_ptr = cJSON_GetErrorPtr ();
-        if (error_ptr != NULL) {
-            fprintf (stderr, "Error before: %s\n", error_ptr);
-        }
-        exit (EXIT_FAILURE);
-    }
-    cJSON *name = cJSON_GetObjectItemCaseSensitive (root, "name");
-    cJSON *button = cJSON_GetObjectItemCaseSensitive (root, "button");
-    // cJSON *event = cJSON_GetObjectItemCaseSensitive (root, "event");
-    uint64_t btn_nr = 0;
-    if (cJSON_IsNumber (button))
-        btn_nr = button->valueint;
-    if (btn_nr != 0 && cJSON_IsString (name) && name->valuestring != NULL) {
-        uint64_t nr = name->valuestring[0] - 'A';
-        if (modules[nr].alter)
-            modules[nr].alter (btn_nr);
-    }
-    cJSON_Delete (root);
-}
-
 static void update () {
-    char buffer[BUF_SIZE];
-    ssize_t n = read (modules[module_id].fds[0], buffer, BUF_SIZE - 1);
+    char input[BUF_SIZE];
+    ssize_t n = read (modules[module_id].fds[0], input, BUF_SIZE - 1);
 
     if (n == -1) {
         if (errno != EAGAIN) {
@@ -66,9 +36,40 @@ static void update () {
         printf ("i3bar closed the input\n");
         exit (EXIT_SUCCESS);
     }
+    input[n] = '\0';
 
-    buffer[n] = '\0';
-    parse_input (buffer);
+    fputs (input, stderr);
+
+    // parse，调用其他模块的 alter
+    const char *idx = input;
+    while (*idx && *idx != '{')
+        idx++;
+    if (!*idx) // 开始的行仅有 [
+        return;
+
+    cJSON *root = cJSON_Parse (idx);
+    if (root == NULL) {
+        const char *error_ptr = cJSON_GetErrorPtr ();
+        if (error_ptr != NULL) {
+            fprintf (stderr, "Error before: %s\n", error_ptr);
+        }
+        exit (EXIT_FAILURE);
+    }
+    cJSON *name = cJSON_GetObjectItemCaseSensitive (root, "name");
+    cJSON *button = cJSON_GetObjectItemCaseSensitive (root, "button");
+    // cJSON *event = cJSON_GetObjectItemCaseSensitive (root, "event");
+
+    uint64_t btn_nr = 0;
+    if (cJSON_IsNumber (button))
+        btn_nr = button->valueint;
+    if (btn_nr != 0 && cJSON_IsString (name) && name->valuestring != NULL) {
+        uint64_t nr = name->valuestring[0] - 'A';
+        // output 应在模块内的 alter 中调用
+        // 因为一些模块可能根本在 alter 后就不想输出
+        if (modules[nr].alter)
+            modules[nr].alter (btn_nr);
+    }
+    cJSON_Delete (root);
 }
 
 void init_stdin (int epoll_fd) {
@@ -89,4 +90,6 @@ void init_stdin (int epoll_fd) {
     modules[module_id].fds[0] = STDIN_FILENO;
     modules[module_id].fds[1] = -1;
     modules[module_id].update = update;
+
+    UPDATE_Q ();
 }

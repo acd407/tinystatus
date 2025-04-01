@@ -114,5 +114,6 @@ void init_network (int epoll_fd) {
     modules[module_id].update = update;
     modules[module_id].alter = alter;
     modules[module_id].interval = 1;
-    update ();
+
+    UPDATE_Q ();
 }

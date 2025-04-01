@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
+#include <tools.h>
 #include <unistd.h>
 
 #define MAX_EVENTS 16
@@ -11,8 +12,30 @@
 module_t modules[MOD_SIZE];
 size_t modules_cnt;
 
+static void output () {
+    putchar ('[');
+    int output_modules_cnt = 0;
+    for (size_t i = 0; i < modules_cnt; i++) {
+        if (modules[i].output) {
+            if (output_modules_cnt > 0)
+                putchar (',');
+            fputs (modules[i].output, stdout);
+            fputs (
+                ",{\"full_text\":\" \",\"separator\":false,"
+                "\"separator_block_width\":0,\"markup\":\"pango\"}",
+                stdout
+            );
+            output_modules_cnt++;
+        }
+    }
+    puts ("],"); // 需要一个换行，puts隐含了
+    fflush (stdout);
+}
+
 static void init (int epoll_fd) { // 注册的顺序，决定输出的顺序
+    // 在注册时同时完成的第一次 update
     modules_cnt = 0;
+    init_backlight (epoll_fd);
     init_volume (epoll_fd);
     init_network (epoll_fd);
     init_memory (epoll_fd);
@@ -20,7 +43,7 @@ static void init (int epoll_fd) { // 注册的顺序，决定输出的顺序
     init_date (epoll_fd);
 
     init_stdin (epoll_fd);
-    init_timer (epoll_fd); // 放到后面，因为 timer 初始化完成后要进行一次 output
+    init_timer (epoll_fd); // 要在所有 interval != 0 的模块后面
 }
 
 int main () {
@@ -36,6 +59,7 @@ int main () {
     }
 
     init (epoll_fd);
+    output();
     // 主事件循环
     struct epoll_event events[MAX_EVENTS];
     while (1) {
@@ -46,6 +70,7 @@ int main () {
         }
         for (int i = 0; i < nfds; i++)
             modules[events[i].data.u64].update ();
+        output();
     }
 
     for (size_t i = 0; i < modules_cnt; i++) {

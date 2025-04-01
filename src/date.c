@@ -43,4 +43,6 @@ void init_date (int epoll_fd) {
 
     modules[module_id].update = update;
     modules[module_id].interval = 1;
+
+    UPDATE_Q ();
 }

@@ -23,23 +23,3 @@ void format_storage_units (char *buf, double bytes) {
         snprintf (buf, 6, "%4.2f%c", bytes, units[unit_idx]);
     }
 }
-
-void output () {
-    putchar ('[');
-    int output_modules_cnt = 0;
-    for (size_t i = 0; i < modules_cnt; i++) {
-        if (modules[i].output) {
-            if (output_modules_cnt > 0)
-                putchar (',');
-            fputs (modules[i].output, stdout);
-            fputs (
-                ",{\"full_text\":\" \",\"separator\":false,"
-                "\"separator_block_width\":0,\"markup\":\"pango\"}",
-                stdout
-            );
-            output_modules_cnt++;
-        }
-    }
-    puts ("],"); // 需要一个换行，puts隐含了
-    fflush (stdout);
-}

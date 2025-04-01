@@ -80,4 +80,6 @@ void init_memory (int epoll_fd) {
 
     modules[module_id].update = update;
     modules[module_id].interval = 2;
+
+    UPDATE_Q ();
 }

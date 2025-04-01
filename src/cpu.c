@@ -84,7 +84,6 @@ static void alter (uint64_t btn) {
         return;
     }
     modules[module_id].update ();
-    output ();
 }
 
 static void update () {
@@ -136,5 +135,7 @@ void init_cpu (int epoll_fd) {
 
     modules[module_id].alter = alter;
     modules[module_id].update = update;
-    modules[module_id].interval = 1;
+    modules[module_id].interval = 1; // 等 init_timer 调用 cpu 的 update
+
+    UPDATE_Q ();
 }
