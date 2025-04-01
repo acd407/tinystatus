@@ -7,13 +7,14 @@
 
 static size_t module_id;
 
-static void init_base () {
-    module_id = modules_cnt++;
-
-    modules[module_id].update = NULL;
-    modules[module_id].alter = NULL;
-    modules[module_id].output = NULL;
-    modules[module_id].fds = NULL;
-    modules[module_id].sec = 0;
-    modules[module_id].state = 0;
-}
+#define INIT_BASE()                                                            \
+    do {                                                                       \
+        module_id = modules_cnt++;                                             \
+        modules[module_id].update = NULL;                                      \
+        modules[module_id].alter = NULL;                                       \
+        modules[module_id].output = NULL;                                      \
+        modules[module_id].fds = NULL;                                         \
+        modules[module_id].interval = 0;                                       \
+        modules[module_id].state = 0;                                          \
+        modules[module_id].data.ptr = NULL;                                    \
+    } while (0)
