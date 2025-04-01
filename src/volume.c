@@ -17,12 +17,18 @@ uint64_t get_volume (snd_mixer_t *handle) {
     for (elem = snd_mixer_first_elem (handle); elem;
          elem = snd_mixer_elem_next (elem)) {
         if (snd_mixer_selem_is_active (elem)) {
+            int muted = false; // 默认代表未静音
+            if (snd_mixer_selem_has_playback_switch (elem)) {
+                snd_mixer_selem_get_playback_switch (
+                    elem, SND_MIXER_SCHN_FRONT_LEFT, &muted
+                );
+            }
             long volume, min, max;
             snd_mixer_selem_get_playback_volume_range (elem, &min, &max);
             snd_mixer_selem_get_playback_volume (
                 elem, SND_MIXER_SCHN_FRONT_LEFT, &volume
             );
-            return (volume - min) * 100 / (max - min);
+            return muted ? 0 : (volume - min) * 100 / (max - min);
         }
     }
     return 0;
@@ -71,6 +77,15 @@ static void alter (uint64_t btn) {
     switch (btn) {
     case 2: // middle button
         system ("pavucontrol -t 3 &");
+        break;
+    case 3: // right button
+        system ("~/.bin/wm/volume t &");
+        break;
+    case 4: // up
+        system ("~/.bin/wm/volume i &");
+        break;
+    case 5: // down
+        system ("~/.bin/wm/volume d &");
         break;
     }
 }
