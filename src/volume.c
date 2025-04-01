@@ -70,6 +70,14 @@ static void update () {
     output ();
 }
 
+static void alter (uint64_t btn) {
+    switch (btn) {
+    case 2: // middle button
+        system ("pavucontrol -t 3 &");
+        break;
+    }
+}
+
 void init_volume (int epoll_fd) {
     INIT_BASE ();
     snd_mixer_t *handle;
@@ -109,6 +117,7 @@ void init_volume (int epoll_fd) {
     }
 
     modules[module_id].update = update;
+    modules[module_id].alter = alter;
     // 保存混音器句柄
     modules[module_id].data.ptr = handle;
     update ();

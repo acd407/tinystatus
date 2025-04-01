@@ -99,11 +99,20 @@ static void update () {
     cJSON_Delete (json);
 }
 
+static void alter (uint64_t btn) {
+    switch (btn) {
+    case 2: // middle button
+        system ("iwgtk &");
+        break;
+    }
+}
+
 void init_network (int epoll_fd) {
     (void) epoll_fd;
     INIT_BASE ();
 
     modules[module_id].update = update;
+    modules[module_id].alter = alter;
     modules[module_id].interval = 1;
     update ();
 }

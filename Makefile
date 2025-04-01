@@ -30,4 +30,4 @@ clean:
 
 .PHONY: all clean
 
--include $(DEPS)
+-include $(DEPENDS)
