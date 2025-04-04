@@ -8,30 +8,45 @@
 #include <sys/epoll.h>
 #include <tools.h>
 #include <unistd.h>
+#define max(x, y) ((x) > (y) ? (x) : (y))
 
-uint64_t get_volume (snd_mixer_t *handle) {
+int64_t get_volume (snd_mixer_t *handle) {
     snd_mixer_handle_events (handle); // 让 ALSA 处理事件，刷新 ALSA
 
+    int64_t volume = -100;
     // 手动检查音量变化
-    snd_mixer_elem_t *elem;
-    for (elem = snd_mixer_first_elem (handle); elem;
-         elem = snd_mixer_elem_next (elem)) {
-        if (snd_mixer_selem_is_active (elem)) {
-            int unmuted = true; // 默认代表未静音
-            if (snd_mixer_selem_has_playback_switch (elem)) {
-                snd_mixer_selem_get_playback_switch (
-                    elem, SND_MIXER_SCHN_FRONT_LEFT, &unmuted
-                );
-            }
-            long volume, min, max;
+    snd_mixer_selem_id_t *sid;
+
+    // 设置混音器元素ID - 查找Master通道
+    snd_mixer_selem_id_alloca (&sid);
+    snd_mixer_selem_id_set_index (sid, 0);
+    snd_mixer_selem_id_set_name (sid, "Master");
+    snd_mixer_elem_t *elem = snd_mixer_find_selem (handle, sid);
+    if (!elem) {
+        fprintf (stderr, "Unable to find Master control\n");
+        snd_mixer_close (handle);
+        return 1;
+    }
+
+    if (snd_mixer_selem_is_active (elem)) {
+        int unmuted = true; // 默认代表未静音
+        if (snd_mixer_selem_has_playback_switch (elem)) {
+            snd_mixer_selem_get_playback_switch (
+                elem, SND_MIXER_SCHN_FRONT_LEFT, &unmuted
+            );
+        }
+        if (unmuted) {
+            long min, max;
+            // 获取音量范围
             snd_mixer_selem_get_playback_volume_range (elem, &min, &max);
+            // 这获取到的并不是最终需要的 0 - 100 的数值
             snd_mixer_selem_get_playback_volume (
                 elem, SND_MIXER_SCHN_FRONT_LEFT, &volume
             );
-            return unmuted ? (volume - min) * 100 / (max - min) : 0;
+            volume = (volume - min) * (uint64_t) 100 / (max - min);
         }
     }
-    return 0;
+    return volume;
 }
 
 static void update () {
@@ -50,11 +65,13 @@ static void update () {
     cJSON_AddStringToObject (json, "markup", "pango");
     cJSON_AddStringToObject (json, "color", IDLE);
 
-    uint64_t volume = get_volume (modules[module_id].data.ptr);
+    int64_t volume = get_volume (modules[module_id].data.ptr);
     volume = (volume + 1) / 5 * 5;
     char output_str[] = "󰕾\u2004INF\0";
-    if (volume == 0) {
-        snprintf (output_str, sizeof (output_str), "󰝟");
+    if (volume < 0)
+        snprintf (output_str, sizeof (output_str), "󰸈");
+    else if (volume == 0) {
+        snprintf (output_str, sizeof (output_str), "󰕿");
     } else if (volume < 34) {
         snprintf (
             output_str, sizeof (output_str), "󰕿\u2004%*lu%%",
@@ -65,7 +82,7 @@ static void update () {
     } else if (volume < 100) {
         snprintf (output_str, sizeof (output_str), "󰕾\u2004%2lu%%", volume);
     } else if (volume < 200) {
-        snprintf (output_str, sizeof (output_str), "󰕾\u2004%3lu%%", volume);
+        snprintf (output_str, sizeof (output_str), "󰝝\u2004%3lu%%", volume);
     }
     cJSON_AddStringToObject (json, "full_text", output_str);
 
