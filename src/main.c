@@ -59,18 +59,18 @@ int main () {
     }
 
     init (epoll_fd);
-    output();
+    output ();
     // 主事件循环
     struct epoll_event events[MAX_EVENTS];
     while (1) {
         int nfds = epoll_wait (epoll_fd, events, MAX_EVENTS, -1);
         if (nfds == -1) {
             perror ("epoll_wait");
-            exit (EXIT_FAILURE);
+            continue;
         }
         for (int i = 0; i < nfds; i++)
             modules[events[i].data.u64].update ();
-        output();
+        output ();
     }
 
     for (size_t i = 0; i < modules_cnt; i++) {
