@@ -77,8 +77,7 @@ static double get_power () {
 static void alter (uint64_t btn) {
     switch (btn) {
     case 3: // right button
-        modules[module_id].state++;
-        modules[module_id].state %= 2;
+        modules[module_id].state ^= 1;
         break;
     default:
         return;
