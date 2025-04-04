@@ -38,14 +38,14 @@ static void update () {
     }
     input[n] = '\0';
 
-    fputs (input, stderr);
-
     // parse，调用其他模块的 alter
     const char *idx = input;
     while (*idx && *idx != '{')
         idx++;
     if (!*idx) // 开始的行仅有 [
         return;
+
+    fputs (input, stderr);
 
     cJSON *root = cJSON_Parse (idx);
     if (root == NULL) {

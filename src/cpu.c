@@ -100,27 +100,35 @@ static void update () {
     cJSON_AddNumberToObject (json, "separator_block_width", 0);
     cJSON_AddStringToObject (json, "markup", "pango");
 
+    char icons[] = {
+        0xf3, 0xb0, 0xbe, 0x86, // 󰾆
+        0xf3, 0xb0, 0xbe, 0x85, // 󰾅
+        0xf3, 0xb0, 0x93, 0x85  // 󰓅
+    };
     double usage = get_usage ();
-    char output_str[] = "󰾆\u200422.3%";
+    size_t idx = usage / 34;
+    char output_str[] = "4bit\u20042.3%";
+    for (size_t i = 0; i < 4; i++)
+        output_str[i] = icons[idx * 4 + i];
     if (modules[module_id].state) {
         double power = get_power ();
         snprintf (
-            output_str, sizeof (output_str), "󰾆\u2004%4.*fW",
-            power >= 10 ? 1 : 2, power
+            output_str + 4, sizeof (output_str) - 4, "\u2004%3.*fW", power < 10,
+            power
         );
     } else {
         snprintf (
-            output_str, sizeof (output_str), "󰾆\u2004%4.*f%%",
-            usage >= 10 ? 1 : 2, usage
+            output_str + 4, sizeof (output_str) - 4, "\u2004%3.*f%%",
+            usage < 10, usage
         );
     }
     cJSON_AddStringToObject (json, "full_text", output_str);
 
     char *colors[] = {IDLE, WARNING, CRITICAL};
     char *color = colors[0];
-    if (usage > 50)
+    if (usage > 30)
         color = colors[1];
-    if (usage > 80)
+    if (usage > 60)
         color = colors[2];
     cJSON_AddStringToObject (json, "color", color);
 

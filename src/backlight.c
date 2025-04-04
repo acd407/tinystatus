@@ -1,4 +1,4 @@
-#include "cJSON.h"
+#include <cJSON.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>
@@ -78,9 +78,27 @@ static void update () {
     // 处理事件
     uint64_t brightness = read_brightness () * 100 / 255;
     brightness = (brightness + 1) / 5 * 5;
-    char output_str[] = "\u2004100%";
+    char *icons[] = {
+        "\ue3d5", // 
+        "\ue3d4", // 
+        "\ue3d3", // 
+        "\ue3d2", // 
+        "\ue3d1", // 
+        "\ue3d0", // 
+        "\ue3cf", // 
+        "\ue3ce", // 
+        "\ue3cd", // 
+        "\ue3cc", // 
+        "\ue3cb", // 
+        "\ue3ca", // 
+        "\ue3c9", // 
+        "\ue3c8", // 
+        "\ue3e3", // 
+    };
+    size_t idx = (sizeof (icons) / sizeof (char *) - 1) * brightness / 100;
+    char output_str[] = "\ue3e0\u2004100%";
     snprintf (
-        output_str, sizeof (output_str), "\u2004%*ld%%",
+        output_str, sizeof (output_str), "%s\u2004%*ld%%", icons[idx],
         brightness == 100 ? 3 : 2, brightness
     );
     cJSON_AddStringToObject (json, "full_text", output_str);
