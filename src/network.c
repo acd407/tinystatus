@@ -9,6 +9,40 @@
 #include <string.h>
 #include <tools.h>
 
+static void get_wireless_status (char *ifname, int64_t *link, int64_t *level) {
+    FILE *fp;
+    char buffer[BUF_SIZE];
+
+    fp = fopen ("/proc/net/wireless", "r");
+    if (!fp) {
+        perror ("Failed to open /proc/net/wireless");
+        exit (EXIT_FAILURE);
+    }
+
+    // 跳过前两行
+    fgets (buffer, sizeof (buffer), fp);
+    fgets (buffer, sizeof (buffer), fp);
+
+    while (fgets (buffer, sizeof (buffer), fp)) {
+        char *line = buffer;
+        while (*line == ' ')
+            line++; // 跳过前导空格
+
+        if (strncmp (ifname, line, strlen (ifname)) != 0)
+            continue;
+
+        line = strchr (line, ':');
+        if (!line)
+            continue;
+        line++;
+
+        if (sscanf (line, "%*d %ld. %ld. %*d", link, level) == 2)
+            break;
+    }
+
+    fclose (fp);
+}
+
 static void get_rate (uint64_t *rx, uint64_t *tx, char *master) {
     static uint64_t prev_rx = 0, prev_tx = 0;
 
@@ -80,6 +114,57 @@ static void get_rate (uint64_t *rx, uint64_t *tx, char *master) {
     prev_tx += *tx;
 }
 
+static void format_ether_output_str (
+    char *buffer, size_t buffer_size, char *ifname, uint64_t rx, uint64_t tx
+) {
+    char *icon = "\xf3\xb0\x88\x80"; // 󰈀
+    while (*icon) {
+        *buffer++ = *icon++;
+        buffer_size--;
+    }
+
+    if (modules[module_id].state) {
+        char rxs[5 + 1], txs[5 + 1];
+        format_storage_units (rxs, rx);
+        format_storage_units (txs, tx);
+        snprintf (buffer, buffer_size, "\u2004%s\u2004%s", rxs, txs);
+    } else {
+        snprintf (buffer, buffer_size, "\u2004%s", ifname);
+    }
+}
+
+static void format_wireless_output_str (
+    char *buffer, size_t buffer_size, char *ifname, uint64_t rx, uint64_t tx
+) {
+    int64_t link = 0, level = 0;
+    get_wireless_status (ifname, &link, &level);
+
+    char icons[] = {
+        0xf3, 0xb0, 0xa4, 0xae, // 󰤮
+        0xf3, 0xb0, 0xa4, 0xaf, // 󰤯
+        0xf3, 0xb0, 0xa4, 0x9f, // 󰤟
+        0xf3, 0xb0, 0xa4, 0xa2, // 󰤢
+        0xf3, 0xb0, 0xa4, 0xa5, // 󰤥
+        0xf3, 0xb0, 0xa4, 0xa8  // 󰤨
+    };
+
+    size_t idx = sizeof (icons) / 4 * link / 101;
+
+    for (size_t i = 0; i < 4; i++) {
+        *buffer++ = icons[idx * 4 + i];
+        buffer_size--;
+    }
+
+    if (modules[module_id].state) {
+        snprintf (buffer, buffer_size, "\u2004%ld%%\u2004%ldDB", link, level);
+    } else {
+        char rxs[5 + 1], txs[5 + 1];
+        format_storage_units (rxs, rx);
+        format_storage_units (txs, tx);
+        snprintf (buffer, buffer_size, "\u2004%s\u2004%s", rxs, txs);
+    }
+}
+
 static void update () {
     if (modules[module_id].output) {
         free (modules[module_id].output);
@@ -96,28 +181,23 @@ static void update () {
     cJSON_AddNumberToObject (json, "separator_block_width", 0);
     cJSON_AddStringToObject (json, "markup", "pango");
 
-    char *icons[] = {"󰈀", "󰖩"};
-    // 󰈀: 4 byte
-    // \u2004: 3 byte
     char output_str[] = "🖧\u20040.00K\u20040.00K  ";
 
     uint64_t rx = 0, tx = 0;
-    char master[IFNAMSIZ];
-    get_rate (&rx, &tx, master);
+    char master_ifname[IFNAMSIZ] = {[0] = 0};
+    get_rate (&rx, &tx, master_ifname);
 
-    char *icon = icons[master[0] == 'w'];
-    for (size_t i = 0; i < 4; i++)
-        output_str[i] = icon[i];
+    if (master_ifname[0] == 'e')
+        format_ether_output_str (
+            output_str, sizeof (output_str), master_ifname, rx, tx
+        );
+    else if (master_ifname[0] == 'w')
+        format_wireless_output_str (
+            output_str, sizeof (output_str), master_ifname, rx, tx
+        );
+    else
+        snprintf (output_str, sizeof (output_str), "\xf3\xb1\x9e\x90"); // 󱞐
 
-    if (modules[module_id].state) {
-        snprintf (output_str + 7, sizeof (output_str) - 7, "%s", master);
-    } else {
-        format_storage_units (output_str + 7, tx);
-        // format_storage_units 会调用 snprintf，将 speed[12] 置为\0
-        // \u2004 = e28084
-        output_str[12] = '\xe2';
-        format_storage_units (output_str + 15, rx);
-    }
     cJSON_AddStringToObject (json, "full_text", output_str);
 
     modules[module_id].output = cJSON_PrintUnformatted (json);
