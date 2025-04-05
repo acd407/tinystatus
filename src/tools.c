@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <utils.h>
+#include <tools.h>
 
 void format_storage_units (char *buf, double bytes) {
     const char *units = "KMGTPE"; // 单位从 K 开始
@@ -22,4 +22,19 @@ void format_storage_units (char *buf, double bytes) {
     } else {
         snprintf (buf, 6, "%4.2f%c", bytes, units[unit_idx]);
     }
+}
+
+uint64_t read_uint64_file (char *file) {
+    FILE *file_soc = fopen (file, "r");
+    if (!file_soc) {
+        perror ("fopen");
+        exit (EXIT_FAILURE);
+    }
+    uint64_t ans = 0;
+    if (EOF == fscanf (file_soc, "%lu", &ans)) {
+        perror ("fscanf");
+        exit (EXIT_FAILURE);
+    }
+    fclose (file_soc);
+    return ans;
 }

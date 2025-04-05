@@ -38,21 +38,6 @@ static int create_inotify () {
     return inotify_fd;
 }
 
-static int read_brightness () {
-    char buffer[32];
-    // 使用 pread 避免改变文件偏移量
-    ssize_t len =
-        pread (modules[module_id].fds[1], buffer, sizeof (buffer) - 1, 0);
-    if (len == -1) {
-        perror ("pread");
-        exit (EXIT_FAILURE);
-    }
-
-    buffer[len] = '\0'; // 确保字符串以 NULL 结尾
-    int retval = atoi (buffer);
-    return retval;
-}
-
 static void update () {
     if (modules[module_id].output) {
         free (modules[module_id].output);
@@ -76,7 +61,8 @@ static void update () {
         exit (EXIT_FAILURE);
     }
     // 处理事件
-    uint64_t brightness = read_brightness () * 100 / 255;
+    uint64_t brightness = read_uint64_file (BRIGHTNESS) * 100 / 255;
+    assert (brightness <= 100);
     brightness = (brightness + 1) / 5 * 5;
     char *icons[] = {
         "\ue3d5", // 
@@ -95,7 +81,7 @@ static void update () {
         "\ue3c8", // 
         "\ue3e3", // 
     };
-    size_t idx = (sizeof (icons) / sizeof (char *) - 1) * brightness / 100;
+    size_t idx = sizeof (icons) / sizeof (char *) * brightness / 101;
     char output_str[] = "\ue3e0\u2004100%";
     snprintf (
         output_str, sizeof (output_str), "%s\u2004%*ld%%", icons[idx],
@@ -135,14 +121,8 @@ void init_backlight (int epoll_fd) {
         exit (EXIT_FAILURE);
     }
 
-    int file_fd = open (BRIGHTNESS, O_RDONLY);
-    if (file_fd == -1) {
-        perror ("open");
-        exit (EXIT_FAILURE);
-    }
     modules[module_id].fds = malloc (sizeof (int) * 3);
     modules[module_id].fds[0] = inotify_fd;
-    modules[module_id].fds[1] = file_fd;
     modules[module_id].fds[2] = -1;
     modules[module_id].update = update;
     modules[module_id].alter = alter;

@@ -56,17 +56,7 @@ static double get_usage () {
 __attribute__ ((unused)) static double get_power_rapl () {
     static uint64_t previous_energy = 0;
 
-    FILE *file = fopen (PACKAGE, "r");
-    if (!file) {
-        perror ("cpu_power: fopen");
-        exit (EXIT_FAILURE);
-    }
-    uint64_t energy;
-    if (EOF == fscanf (file, "%lu", &energy)) {
-        perror ("cpu_power: fscanf");
-        exit (EXIT_FAILURE);
-    }
-    fclose (file);
+    uint64_t energy = read_uint64_file (PACKAGE);
 
     if (!previous_energy)
         previous_energy = energy;
@@ -78,30 +68,8 @@ __attribute__ ((unused)) static double get_power_rapl () {
 }
 
 __attribute__ ((unused)) static double get_power_zenpower () {
-    FILE *file_core = fopen (SVI2_P_Core, "r");
-    if (!file_core) {
-        perror ("cpu_power: fopen");
-        exit (EXIT_FAILURE);
-    }
-    uint64_t uwatt_core = 0;
-    if (EOF == fscanf (file_core, "%lu", &uwatt_core)) {
-        perror ("cpu_power: fscanf");
-        exit (EXIT_FAILURE);
-    }
-    fclose (file_core);
-
-    FILE *file_soc = fopen (SVI2_P_Core, "r");
-    if (!file_soc) {
-        perror ("cpu_power: fopen");
-        exit (EXIT_FAILURE);
-    }
-    uint64_t uwatt_soc = 0;
-    if (EOF == fscanf (file_soc, "%lu", &uwatt_soc)) {
-        perror ("cpu_power: fscanf");
-        exit (EXIT_FAILURE);
-    }
-    fclose (file_soc);
-
+    uint64_t uwatt_core = read_uint64_file (SVI2_P_Core);
+    uint64_t uwatt_soc = read_uint64_file (SVI2_P_SoC);
     return (uwatt_core + uwatt_soc) / 1e6;
 }
 

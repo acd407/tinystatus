@@ -8,22 +8,6 @@
 
 #define Tdie "/sys/class/hwmon/hwmon3/temp1_input"
 
-static double get_die_temp () {
-    FILE *file_tdie = fopen (Tdie, "r");
-    if (!file_tdie) {
-        perror ("temp: fopen");
-        exit (EXIT_FAILURE);
-    }
-    uint64_t mtemp = 0;
-    if (EOF == fscanf (file_tdie, "%lu", &mtemp)) {
-        perror ("temp: fscanf");
-        exit (EXIT_FAILURE);
-    }
-    fclose (file_tdie);
-
-    return mtemp / 1e3;
-}
-
 static void update () {
     if (modules[module_id].output) {
         free (modules[module_id].output);
@@ -40,7 +24,7 @@ static void update () {
 
     char output_str[] = "ico\u200435.3\ue33e";
 
-    double temp = get_die_temp ();
+    double temp = read_uint64_file (Tdie) / 1e3;
 
     char *icons[] = {
         "\uf2cb", // 
