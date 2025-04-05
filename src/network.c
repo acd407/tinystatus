@@ -43,7 +43,8 @@ static void get_wireless_status (char *ifname, int64_t *link, int64_t *level) {
     fclose (fp);
 }
 
-static void get_rate (uint64_t *rx, uint64_t *tx, char *master) {
+static void
+get_network_speed_and_master_dev (uint64_t *rx, uint64_t *tx, char *master) {
     static uint64_t prev_rx = 0, prev_tx = 0;
 
     FILE *fp;
@@ -114,7 +115,7 @@ static void get_rate (uint64_t *rx, uint64_t *tx, char *master) {
     prev_tx += *tx;
 }
 
-static void format_ether_output_str (
+static void format_ether_output (
     char *buffer, size_t buffer_size, char *ifname, uint64_t rx, uint64_t tx
 ) {
     char *icon = "\xf3\xb0\x88\x80"; // 󰈀
@@ -133,7 +134,7 @@ static void format_ether_output_str (
     }
 }
 
-static void format_wireless_output_str (
+static void format_wireless_output (
     char *buffer, size_t buffer_size, char *ifname, uint64_t rx, uint64_t tx
 ) {
     int64_t link = 0, level = 0;
@@ -185,14 +186,14 @@ static void update () {
 
     uint64_t rx = 0, tx = 0;
     char master_ifname[IFNAMSIZ] = {[0] = 0};
-    get_rate (&rx, &tx, master_ifname);
+    get_network_speed_and_master_dev (&rx, &tx, master_ifname);
 
     if (master_ifname[0] == 'e')
-        format_ether_output_str (
+        format_ether_output (
             output_str, sizeof (output_str), master_ifname, rx, tx
         );
     else if (master_ifname[0] == 'w')
-        format_wireless_output_str (
+        format_wireless_output (
             output_str, sizeof (output_str), master_ifname, rx, tx
         );
     else

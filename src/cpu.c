@@ -8,6 +8,9 @@
 
 #define PACKAGE "/sys/class/powercap/intel-rapl:0/energy_uj"
 #define CORE "/sys/class/powercap/intel-rapl:0:0/energy_uj"
+#define SVI2_P_Core "/sys/class/hwmon/hwmon3/power1_input"
+#define SVI2_P_SoC "/sys/class/hwmon/hwmon3/power2_input"
+#define GET_POWER get_power_zenpower
 
 static double get_usage () {
     static uint64_t prev_idle = 0, prev_total = 0;
@@ -50,7 +53,7 @@ static double get_usage () {
     return cpu_usage;
 }
 
-static double get_power () {
+__attribute__ ((unused)) static double get_power_rapl () {
     static uint64_t previous_energy = 0;
 
     FILE *file = fopen (PACKAGE, "r");
@@ -72,6 +75,34 @@ static double get_power () {
 
     previous_energy = energy;
     return power;
+}
+
+__attribute__ ((unused)) static double get_power_zenpower () {
+    FILE *file_core = fopen (SVI2_P_Core, "r");
+    if (!file_core) {
+        perror ("cpu_power: fopen");
+        exit (EXIT_FAILURE);
+    }
+    uint64_t uwatt_core = 0;
+    if (EOF == fscanf (file_core, "%lu", &uwatt_core)) {
+        perror ("cpu_power: fscanf");
+        exit (EXIT_FAILURE);
+    }
+    fclose (file_core);
+
+    FILE *file_soc = fopen (SVI2_P_Core, "r");
+    if (!file_soc) {
+        perror ("cpu_power: fopen");
+        exit (EXIT_FAILURE);
+    }
+    uint64_t uwatt_soc = 0;
+    if (EOF == fscanf (file_soc, "%lu", &uwatt_soc)) {
+        perror ("cpu_power: fscanf");
+        exit (EXIT_FAILURE);
+    }
+    fclose (file_soc);
+
+    return (uwatt_core + uwatt_soc) / 1e6;
 }
 
 static void alter (uint64_t btn) {

@@ -17,7 +17,7 @@ static void get_usage (uint64_t *used, double *percent) {
         exit (EXIT_FAILURE);
     }
 
-    uint64_t total, avaliable;
+    uint64_t total = 0, avaliable = 0;
     while (fgets (buffer, sizeof (buffer), fp)) {
         if (strncmp (buffer, "MemTotal:", 9) == 0) {
             token = strtok (buffer, " ");
