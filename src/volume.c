@@ -49,7 +49,7 @@ int64_t get_volume (snd_mixer_t *handle) {
     return volume;
 }
 
-static void update () {
+static void update (size_t module_id) {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }
@@ -91,7 +91,8 @@ static void update () {
     cJSON_Delete (json);
 }
 
-static void alter (uint64_t btn) {
+static void alter (size_t module_id, uint64_t btn) {
+    (void) module_id;
     switch (btn) {
     case 2: // middle button
         system ("pavucontrol -t 3 &");

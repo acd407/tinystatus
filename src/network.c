@@ -43,9 +43,11 @@ static void get_wireless_status (char *ifname, int64_t *link, int64_t *level) {
     fclose (fp);
 }
 
-static void
-get_network_speed_and_master_dev (uint64_t *rx, uint64_t *tx, char *master) {
-    static uint64_t prev_rx = 0, prev_tx = 0;
+static void get_network_speed_and_master_dev (
+    size_t module_id, uint64_t *rx, uint64_t *tx, char *master
+) {
+    uint64_t *prev_rx = &((uint64_t *) modules[module_id].data.ptr)[0];
+    uint64_t *prev_tx = &((uint64_t *) modules[module_id].data.ptr)[1];
 
     FILE *fp;
     char buffer[BUF_SIZE];
@@ -104,19 +106,20 @@ get_network_speed_and_master_dev (uint64_t *rx, uint64_t *tx, char *master) {
         exit (EXIT_FAILURE);
     }
 
-    if (!prev_rx)
-        prev_rx = *rx;
-    if (!prev_tx)
-        prev_tx = *tx;
+    if (!*prev_rx)
+        *prev_rx = *rx;
+    if (!*prev_tx)
+        *prev_tx = *tx;
 
-    *rx -= prev_rx;
-    *tx -= prev_tx;
-    prev_rx += *rx;
-    prev_tx += *tx;
+    *rx -= *prev_rx;
+    *tx -= *prev_tx;
+    *prev_rx += *rx;
+    *prev_tx += *tx;
 }
 
 static void format_ether_output (
-    char *buffer, size_t buffer_size, char *ifname, uint64_t rx, uint64_t tx
+    size_t module_id, char *buffer, size_t buffer_size, char *ifname,
+    uint64_t rx, uint64_t tx
 ) {
     char *icon = "\xf3\xb0\x88\x80"; // 󰈀
     while (*icon) {
@@ -130,12 +133,14 @@ static void format_ether_output (
         format_storage_units (txs, tx);
         snprintf (buffer, buffer_size, "\u2004%s\u2004%s", rxs, txs);
     } else {
+        // 输出链路速率 /sys/class/net/br0/speed
         snprintf (buffer, buffer_size, "\u2004%s", ifname);
     }
 }
 
 static void format_wireless_output (
-    char *buffer, size_t buffer_size, char *ifname, uint64_t rx, uint64_t tx
+    size_t module_id, char *buffer, size_t buffer_size, char *ifname,
+    uint64_t rx, uint64_t tx
 ) {
     int64_t link = 0, level = 0;
     get_wireless_status (ifname, &link, &level);
@@ -166,7 +171,7 @@ static void format_wireless_output (
     }
 }
 
-static void update () {
+static void update (size_t module_id) {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }
@@ -186,15 +191,15 @@ static void update () {
 
     uint64_t rx = 0, tx = 0;
     char master_ifname[IFNAMSIZ] = {[0] = 0};
-    get_network_speed_and_master_dev (&rx, &tx, master_ifname);
+    get_network_speed_and_master_dev (module_id, &rx, &tx, master_ifname);
 
     if (master_ifname[0] == 'e')
         format_ether_output (
-            output_str, sizeof (output_str), master_ifname, rx, tx
+            module_id, output_str, sizeof (output_str), master_ifname, rx, tx
         );
     else if (master_ifname[0] == 'w')
         format_wireless_output (
-            output_str, sizeof (output_str), master_ifname, rx, tx
+            module_id, output_str, sizeof (output_str), master_ifname, rx, tx
         );
     else
         snprintf (output_str, sizeof (output_str), "\xf3\xb1\x9e\x90"); // 󱞐
@@ -206,16 +211,20 @@ static void update () {
     cJSON_Delete (json);
 }
 
-static void alter (uint64_t btn) {
+static void alter (size_t module_id, uint64_t btn) {
     switch (btn) {
     case 2: // middle button
         system ("iwgtk &");
         break;
     case 3: // right button
         modules[module_id].state ^= 1;
-        modules[module_id].update ();
+        modules[module_id].update (module_id);
         break;
     }
+}
+
+static void del (size_t module_id) {
+    free (modules[module_id].data.ptr);
 }
 
 void init_network (int epoll_fd) {
@@ -225,6 +234,10 @@ void init_network (int epoll_fd) {
     modules[module_id].update = update;
     modules[module_id].alter = alter;
     modules[module_id].interval = 1;
+    modules[module_id].data.ptr = malloc (sizeof (uint64_t) * 2);
+    ((uint64_t *) modules[module_id].data.ptr)[0] = 0;
+    ((uint64_t *) modules[module_id].data.ptr)[1] = 0;
+    modules[module_id].del = del;
 
     UPDATE_Q ();
 }

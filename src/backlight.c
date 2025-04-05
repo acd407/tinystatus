@@ -38,7 +38,7 @@ static int create_inotify () {
     return inotify_fd;
 }
 
-static void update () {
+static void update (size_t module_id) {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }
@@ -94,7 +94,8 @@ static void update () {
     cJSON_Delete (json);
 }
 
-static void alter (uint64_t btn) {
+static void alter (size_t module_id, uint64_t btn) {
+    (void) module_id;
     switch (btn) {
     case 4: // up
         system ("~/.bin/wm/backlight i >/dev/null &");
@@ -121,9 +122,9 @@ void init_backlight (int epoll_fd) {
         exit (EXIT_FAILURE);
     }
 
-    modules[module_id].fds = malloc (sizeof (int) * 3);
+    modules[module_id].fds = malloc (sizeof (int) * 2);
     modules[module_id].fds[0] = inotify_fd;
-    modules[module_id].fds[2] = -1;
+    modules[module_id].fds[1] = -1;
     modules[module_id].update = update;
     modules[module_id].alter = alter;
 

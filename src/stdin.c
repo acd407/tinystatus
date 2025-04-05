@@ -21,7 +21,7 @@ static void set_nonblocking (int fd) {
     }
 }
 
-static void update () {
+static void update (size_t module_id) {
     char input[BUF_SIZE];
     ssize_t n = read (modules[module_id].fds[0], input, BUF_SIZE - 1);
 
@@ -67,7 +67,7 @@ static void update () {
         // output 应在模块内的 alter 中调用
         // 因为一些模块可能根本在 alter 后就不想输出
         if (modules[nr].alter)
-            modules[nr].alter (btn_nr);
+            modules[nr].alter (nr, btn_nr);
     }
     cJSON_Delete (root);
 }

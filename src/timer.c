@@ -28,20 +28,20 @@ static int create_timer () {
     return timer_fd;
 }
 
-static void update () {
-    static uint64_t counter = 0;
+static void update (size_t module_id) {
+    uint64_t *counter = &modules[module_id].data.num;
     uint64_t expirations;
     ssize_t s =
         read (modules[module_id].fds[0], &expirations, sizeof (uint64_t));
-    if (counter > 0 && s == -1) {
+    if (*counter > 0 && s == -1) {
         perror ("read timerfd");
         exit (EXIT_FAILURE);
     }
-    counter += s == -1 ? 0 : expirations;
+    *counter += s == -1 ? 0 : expirations;
 
     for (size_t i = 0; i < modules_cnt; i++)
-        if (modules[i].interval && counter % modules[i].interval == 0)
-            modules[i].update ();
+        if (modules[i].interval && *counter % modules[i].interval == 0)
+            modules[i].update (i);
 }
 
 void init_timer (int epoll_fd) {
@@ -62,6 +62,7 @@ void init_timer (int epoll_fd) {
     modules[module_id].fds[0] = timer_fd;
     modules[module_id].fds[1] = -1;
     modules[module_id].update = update;
+    modules[module_id].data.num = 0;
 
     UPDATE_Q ();
 }

@@ -12,8 +12,9 @@
 #define SVI2_P_SoC "/sys/class/hwmon/hwmon3/power2_input"
 #define GET_POWER get_power_zenpower
 
-static double get_usage () {
-    static uint64_t prev_idle = 0, prev_total = 0;
+static double get_usage (size_t module_id) {
+    uint64_t *prev_idle = &((uint64_t *) modules[module_id].data.ptr)[0];
+    uint64_t *prev_total = &((uint64_t *) modules[module_id].data.ptr)[1];
     char buffer[BUF_SIZE];
     uint64_t idx, nice, system, idle, iowait, irq, softirq;
 
@@ -37,33 +38,33 @@ static double get_usage () {
 
     uint64_t total = idx + nice + system + idle + iowait + irq + softirq;
     uint64_t total_idle = idle + iowait;
-    uint64_t total_diff = total - prev_total;
-    uint64_t idle_diff = total_idle - prev_idle;
+    uint64_t total_diff = total - *prev_total;
+    uint64_t idle_diff = total_idle - *prev_idle;
 
     double cpu_usage;
-    if (prev_total != 0 && total_diff != 0) {
+    if (*prev_total != 0 && total_diff != 0) {
         cpu_usage = 100.0f * (total_diff - idle_diff) / total_diff;
     } else {
         cpu_usage = 0.0f;
     }
 
-    prev_idle = total_idle;
-    prev_total = total;
+    *prev_idle = total_idle;
+    *prev_total = total;
 
     return cpu_usage;
 }
 
-__attribute__ ((unused)) static double get_power_rapl () {
-    static uint64_t previous_energy = 0;
+__attribute__ ((unused)) static double get_power_rapl (size_t module_id) {
+    uint64_t *previous_energy = &((uint64_t *) modules[module_id].data.ptr)[2];
 
     uint64_t energy = read_uint64_file (PACKAGE);
 
-    if (!previous_energy)
-        previous_energy = energy;
-    uint64_t energy_diff = energy - previous_energy;
+    if (!*previous_energy)
+        *previous_energy = energy;
+    uint64_t energy_diff = energy - *previous_energy;
     double power = (double) energy_diff / 1e6;
 
-    previous_energy = energy;
+    *previous_energy = energy;
     return power;
 }
 
@@ -73,7 +74,7 @@ __attribute__ ((unused)) static double get_power_zenpower () {
     return (uwatt_core + uwatt_soc) / 1e6;
 }
 
-static void alter (uint64_t btn) {
+static void alter (size_t module_id, uint64_t btn) {
     switch (btn) {
     case 3: // right button
         modules[module_id].state ^= 1;
@@ -81,10 +82,10 @@ static void alter (uint64_t btn) {
     default:
         return;
     }
-    modules[module_id].update ();
+    modules[module_id].update (module_id);
 }
 
-static void update () {
+static void update (size_t module_id) {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }
@@ -105,7 +106,7 @@ static void update () {
         "\xf3\xb0\xbe\x85", // 󰾅
         "\xf3\xb0\x93\x85"  // 󰓅
     };
-    double usage = get_usage ();
+    double usage = get_usage (module_id);
     size_t idx = usage / 101 * sizeof (icons) / sizeof (char *);
     for (size_t i = 0; icons[idx][i]; i++)
         output_str[i] = icons[idx][i];
@@ -138,6 +139,10 @@ static void update () {
     cJSON_Delete (json);
 }
 
+static void del (size_t module_id) {
+    free (modules[module_id].data.ptr);
+}
+
 void init_cpu (int epoll_fd) {
     (void) epoll_fd;
     INIT_BASE ();
@@ -145,6 +150,11 @@ void init_cpu (int epoll_fd) {
     modules[module_id].alter = alter;
     modules[module_id].update = update;
     modules[module_id].interval = 1; // 等 init_timer 调用 cpu 的 update
+    modules[module_id].data.ptr = malloc (sizeof (uint64_t) * 3);
+    ((uint64_t *) modules[module_id].data.ptr)[0] = 0;
+    ((uint64_t *) modules[module_id].data.ptr)[1] = 0;
+    ((uint64_t *) modules[module_id].data.ptr)[2] = 0;
+    modules[module_id].del = del;
 
     UPDATE_Q ();
 }

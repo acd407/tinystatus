@@ -37,7 +37,7 @@ static void get_usage (uint64_t *used, double *percent) {
     *used *= 1024;
 }
 
-static void update () {
+static void update (size_t module_id) {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }

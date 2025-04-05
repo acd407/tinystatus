@@ -7,7 +7,7 @@
 #include <time.h>
 #include <tools.h>
 
-static void update () {
+static void update (size_t module_id) {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }

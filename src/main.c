@@ -71,7 +71,7 @@ int main () {
             continue;
         }
         for (int i = 0; i < nfds; i++)
-            modules[events[i].data.u64].update ();
+            modules[events[i].data.u64].update (events[i].data.u64);
         output ();
     }
 
@@ -81,6 +81,8 @@ int main () {
                 close (modules[i].fds[j]);
             free (modules[i].fds);
         }
+        if (modules[i].del)
+            modules[i].del (i);
     }
     close (epoll_fd);
     return EXIT_SUCCESS;

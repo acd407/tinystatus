@@ -8,7 +8,7 @@
 
 #define Tdie "/sys/class/hwmon/hwmon3/temp1_input"
 
-static void update () {
+static void update (size_t module_id) {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }
@@ -22,7 +22,7 @@ static void update () {
     cJSON_AddNumberToObject (json, "separator_block_width", 0);
     cJSON_AddStringToObject (json, "markup", "pango");
 
-    char output_str[] = "ico\u200435.3\ue33e";
+    char output_str[] = "ico\u200435.3";
 
     double temp = read_uint64_file (Tdie) / 1e3;
 
@@ -37,12 +37,12 @@ static void update () {
     for (size_t i = 0; icons[idx][i]; i++)
         output_str[i] = icons[idx][i];
     snprintf (
-        output_str + 3, sizeof (output_str) - 3, "\u2004%3.*f\ue33e",
+        output_str + 3, sizeof (output_str) - 3, "\u2004%3.*f",
         temp < 10 ? 2 : 1, temp
     );
     cJSON_AddStringToObject (json, "full_text", output_str);
 
-    char *colors[] = {CODE, IDLE, WARNING, CRITICAL};
+    char *colors[] = {COOL, IDLE, WARNING, CRITICAL};
     if (temp < 30)
         idx = 0;
     else if (temp < 60)

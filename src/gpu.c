@@ -9,7 +9,7 @@
 #define GPU_USAGE "/sys/class/drm/card0/device/gpu_busy_percent"
 #define VRAM_USED "/sys/class/drm/card0/device/mem_info_vram_used"
 
-static void alter (uint64_t btn) {
+static void alter (size_t module_id, uint64_t btn) {
     switch (btn) {
     case 3: // right button
         modules[module_id].state ^= 1;
@@ -18,10 +18,10 @@ static void alter (uint64_t btn) {
     default:
         return;
     }
-    modules[module_id].update ();
+    modules[module_id].update (module_id);
 }
 
-static void update () {
+static void update (size_t module_id) {
     if (modules[module_id].output) {
         free (modules[module_id].output);
     }
