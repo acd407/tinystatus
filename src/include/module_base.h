@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <main.h>
 
+#define CODE "#729FCF"
 #define GOOD "#98BC37"
 #define IDLE "#FCE8C3"
 #define WARNING "#FED06E"

@@ -1,6 +1,6 @@
 CC = gcc
 EXEC = tinystatus
-CFLAGS = -Wall -Wextra -MMD -MP -Isrc/include
+CFLAGS = -Wall -Wextra -MMD -MP -Isrc/include -O2
 LDFLAGS = -lm -s
 
 CFLAGS += $(shell pkg-config --cflags libcjson)

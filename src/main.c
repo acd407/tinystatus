@@ -40,6 +40,7 @@ static void init (int epoll_fd) { // 注册的顺序，决定输出的顺序
     init_network (epoll_fd);
     init_memory (epoll_fd);
     init_cpu (epoll_fd);
+    init_temp (epoll_fd);
     init_date (epoll_fd);
 
     init_stdin (epoll_fd);
