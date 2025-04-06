@@ -10,7 +10,7 @@
 #define CORE "/sys/class/powercap/intel-rapl:0:0/energy_uj"
 #define SVI2_P_Core "/sys/class/hwmon/hwmon3/power1_input"
 #define SVI2_P_SoC "/sys/class/hwmon/hwmon3/power2_input"
-#define GET_POWER get_power_zenpower
+// #define USE_RAPL
 
 static double get_usage (size_t module_id) {
     uint64_t *prev_idle = &((uint64_t *) modules[module_id].data.ptr)[0];
@@ -54,7 +54,8 @@ static double get_usage (size_t module_id) {
     return cpu_usage;
 }
 
-__attribute__ ((unused)) static double get_power_rapl (size_t module_id) {
+#ifdef USE_RAPL
+static double get_power (size_t module_id) {
     uint64_t *previous_energy = &((uint64_t *) modules[module_id].data.ptr)[2];
 
     uint64_t energy = read_uint64_file (PACKAGE);
@@ -67,12 +68,14 @@ __attribute__ ((unused)) static double get_power_rapl (size_t module_id) {
     *previous_energy = energy;
     return power;
 }
-
-__attribute__ ((unused)) static double get_power_zenpower () {
+#else
+static double get_power (size_t module_id) {
+    (void) module_id;
     uint64_t uwatt_core = read_uint64_file (SVI2_P_Core);
     uint64_t uwatt_soc = read_uint64_file (SVI2_P_SoC);
     return (uwatt_core + uwatt_soc) / 1e6;
 }
+#endif
 
 static void alter (size_t module_id, uint64_t btn) {
     switch (btn) {
@@ -86,19 +89,6 @@ static void alter (size_t module_id, uint64_t btn) {
 }
 
 static void update (size_t module_id) {
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
-    cJSON *json = cJSON_CreateObject ();
-
-    char name[] = "A";
-    *name += module_id;
-
-    cJSON_AddStringToObject (json, "name", name);
-    cJSON_AddFalseToObject (json, "separator");
-    cJSON_AddNumberToObject (json, "separator_block_width", 0);
-    cJSON_AddStringToObject (json, "markup", "pango");
-
     char output_str[] = "4bit\u20042.3%";
 
     char *icons[] = {
@@ -112,7 +102,7 @@ static void update (size_t module_id) {
         output_str[i] = icons[idx][i];
 
     if (modules[module_id].state) {
-        double power = GET_POWER ();
+        double power = get_power (module_id);
         snprintf (
             output_str + 4, sizeof (output_str) - 4, "\u2004%3.*fW", power < 10,
             power
@@ -123,7 +113,6 @@ static void update (size_t module_id) {
             usage < 10, usage
         );
     }
-    cJSON_AddStringToObject (json, "full_text", output_str);
 
     char *colors[] = {IDLE, WARNING, CRITICAL};
     if (usage < 30)
@@ -132,8 +121,22 @@ static void update (size_t module_id) {
         idx = 1;
     else
         idx = 2;
+
+    cJSON *json = cJSON_CreateObject ();
+
+    char name[] = "A";
+    *name += module_id;
+
+    cJSON_AddStringToObject (json, "name", name);
+    cJSON_AddFalseToObject (json, "separator");
+    cJSON_AddNumberToObject (json, "separator_block_width", 0);
+    cJSON_AddStringToObject (json, "markup", "pango");
+    cJSON_AddStringToObject (json, "full_text", output_str);
     cJSON_AddStringToObject (json, "color", colors[idx]);
 
+    if (modules[module_id].output) {
+        free (modules[module_id].output);
+    }
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
     cJSON_Delete (json);
@@ -145,16 +148,16 @@ static void del (size_t module_id) {
 
 void init_cpu (int epoll_fd) {
     (void) epoll_fd;
-    INIT_BASE ();
+    INIT_BASE
 
     modules[module_id].alter = alter;
     modules[module_id].update = update;
-    modules[module_id].interval = 1; // 等 init_timer 调用 cpu 的 update
+    modules[module_id].interval = 1;
     modules[module_id].data.ptr = malloc (sizeof (uint64_t) * 3);
     ((uint64_t *) modules[module_id].data.ptr)[0] = 0;
     ((uint64_t *) modules[module_id].data.ptr)[1] = 0;
     ((uint64_t *) modules[module_id].data.ptr)[2] = 0;
     modules[module_id].del = del;
 
-    UPDATE_Q ();
+    UPDATE_Q
 }

@@ -22,19 +22,6 @@ static void alter (size_t module_id, uint64_t btn) {
 }
 
 static void update (size_t module_id) {
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
-    cJSON *json = cJSON_CreateObject ();
-
-    char name[] = "A";
-    *name += module_id;
-
-    cJSON_AddStringToObject (json, "name", name);
-    cJSON_AddFalseToObject (json, "separator");
-    cJSON_AddNumberToObject (json, "separator_block_width", 0);
-    cJSON_AddStringToObject (json, "markup", "pango");
-
     char output_str[] = "\xf3\xb0\x8d\xb9\u20041.31G"; // 󰍹
 
     uint64_t usage = read_uint64_file (GPU_USAGE);
@@ -46,7 +33,6 @@ static void update (size_t module_id) {
             usage < 100 ? 2 : 3, usage
         );
     }
-    cJSON_AddStringToObject (json, "full_text", output_str);
 
     char *colors[] = {IDLE, WARNING, CRITICAL};
     size_t idx;
@@ -56,8 +42,22 @@ static void update (size_t module_id) {
         idx = 1;
     else
         idx = 2;
-    cJSON_AddStringToObject (json, "color", colors[idx]);
 
+    cJSON *json = cJSON_CreateObject ();
+
+    char name[] = "A";
+    *name += module_id;
+
+    cJSON_AddStringToObject (json, "name", name);
+    cJSON_AddFalseToObject (json, "separator");
+    cJSON_AddNumberToObject (json, "separator_block_width", 0);
+    cJSON_AddStringToObject (json, "markup", "pango");
+    cJSON_AddStringToObject (json, "color", colors[idx]);
+    cJSON_AddStringToObject (json, "full_text", output_str);
+
+    if (modules[module_id].output) {
+        free (modules[module_id].output);
+    }
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
     cJSON_Delete (json);
@@ -65,11 +65,11 @@ static void update (size_t module_id) {
 
 void init_gpu (int epoll_fd) {
     (void) epoll_fd;
-    INIT_BASE ();
+    INIT_BASE
 
     modules[module_id].alter = alter;
     modules[module_id].update = update;
     modules[module_id].interval = 1;
 
-    UPDATE_Q ();
+    UPDATE_Q
 }

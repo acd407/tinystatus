@@ -8,7 +8,7 @@
 #define WARNING "#FED06E"
 #define CRITICAL "#F75341"
 
-#define INIT_BASE()                                                            \
+#define INIT_BASE                                                              \
     size_t module_id = modules_cnt++;                                          \
     assert (module_id < MOD_SIZE);                                             \
     modules[module_id].update = NULL;                                          \
@@ -21,8 +21,6 @@
     modules[module_id].data.ptr = NULL;
 
 // 刷新那些不随时间刷新的 modules
-#define UPDATE_Q()                                                             \
-    do {                                                                       \
-        if (modules[module_id].interval == 0)                                  \
-            update (module_id);                                                \
-    } while (0)
+#define UPDATE_Q                                                               \
+    if (modules[module_id].interval == 0)                                      \
+        update (module_id);

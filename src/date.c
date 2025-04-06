@@ -8,9 +8,13 @@
 #include <tools.h>
 
 static void update (size_t module_id) {
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
+    time_t raw_time;
+    time (&raw_time);                             // 获取当前时间戳
+    struct tm *time_info = localtime (&raw_time); // 转换为本地时间
+    char output_str[80];
+    strftime (
+        output_str, sizeof (output_str), "%a\u2004%d\u2004%H:%M:%S", time_info
+    );
 
     cJSON *json = cJSON_CreateObject ();
 
@@ -22,16 +26,11 @@ static void update (size_t module_id) {
     cJSON_AddFalseToObject (json, "separator");
     cJSON_AddNumberToObject (json, "separator_block_width", 0);
     cJSON_AddStringToObject (json, "markup", "pango");
-
-    time_t raw_time;
-    time (&raw_time);                             // 获取当前时间戳
-    struct tm *time_info = localtime (&raw_time); // 转换为本地时间
-    char output_str[80];
-    strftime (
-        output_str, sizeof (output_str), "%a\u2004%d\u2004%H:%M:%S", time_info
-    );
     cJSON_AddStringToObject (json, "full_text", output_str);
 
+    if (modules[module_id].output) {
+        free (modules[module_id].output);
+    }
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
     cJSON_Delete (json);
@@ -39,10 +38,10 @@ static void update (size_t module_id) {
 
 void init_date (int epoll_fd) {
     (void) epoll_fd;
-    INIT_BASE();
+    INIT_BASE
 
     modules[module_id].update = update;
     modules[module_id].interval = 1;
 
-    UPDATE_Q ();
+    UPDATE_Q
 }

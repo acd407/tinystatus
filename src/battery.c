@@ -14,8 +14,37 @@
 #define DEVICE_INTERFACE "org.freedesktop.UPower.Device"
 #define BATTERY "/org/freedesktop/UPower/devices/battery_BAT0"
 
-// 获取电池属性值
-void get_property (
+#define DBUS_ERROR_Q                                                           \
+    if (dbus_error_is_set (&err)) {                                            \
+        dbus_error_free (&err);                                                \
+        exit (EXIT_FAILURE);                                                   \
+    }
+
+static const char *icons_charging[] = {
+    "\xf3\xb0\x82\x86", // 󰂆
+    "\xf3\xb0\x82\x87", // 󰂇
+    "\xf3\xb0\x82\x88", // 󰂈
+    "\xf3\xb0\x82\x89", // 󰂉
+    "\xf3\xb0\x82\x8a", // 󰂊
+    "\xf3\xb0\x82\x8b", // 󰂋
+    "\xf3\xb0\x82\x85"  // 󰂅
+};
+
+static const char *icons_discharging[] = {
+    "\xf3\xb0\x82\x8e", // 󰂎
+    "\xf3\xb0\x81\xba", // 󰁺
+    "\xf3\xb0\x81\xbb", // 󰁻
+    "\xf3\xb0\x81\xbc", // 󰁼
+    "\xf3\xb0\x81\xbd", // 󰁽
+    "\xf3\xb0\x81\xbe", // 󰁾
+    "\xf3\xb0\x81\xbf", // 󰁿
+    "\xf3\xb0\x82\x80", // 󰂀
+    "\xf3\xb0\x82\x81", // 󰂁
+    "\xf3\xb0\x82\x82", // 󰂂
+    "\xf3\xb0\x81\xb9", // 󰁹
+};
+
+static void dbus_get_property (
     DBusConnection *conn, const char *device_path, const char *property_name,
     int expected_type, void *value
 ) {
@@ -25,7 +54,6 @@ void get_property (
     DBusMessage *msg = dbus_message_new_method_call (
         UPOWER_SERVICE, device_path, "org.freedesktop.DBus.Properties", "Get"
     );
-
     if (msg == NULL) {
         exit (EXIT_FAILURE);
     }
@@ -39,11 +67,7 @@ void get_property (
     DBusMessage *reply =
         dbus_connection_send_with_reply_and_block (conn, msg, -1, &err);
     dbus_message_unref (msg);
-
-    if (dbus_error_is_set (&err)) {
-        dbus_error_free (&err);
-        exit (EXIT_FAILURE);
-    }
+    DBUS_ERROR_Q
 
     DBusMessageIter iter, variant;
     dbus_message_iter_init (reply, &iter);
@@ -70,38 +94,38 @@ typedef enum {
     LAST
 } State;
 
-static void update (size_t module_id) {
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
-
+static void get_battery_property (
+    uint64_t module_id, State *state, double *percentage, int64_t *time,
+    double *energy, double *energy_rate
+) {
     DBusConnection *conn = modules[module_id].data.ptr;
     dbus_connection_read_write (conn, 0);
-    DBusMessage *msg;
 
-    State state;
-    double energy, percentage_float, energy_rate;
-    int64_t time = 0;
+    DBusMessage *msg;
     bool has_new_message = false;
 
     // 使用 do-while 确保至少获取一次状态
     do {
         // 获取当前电池状态
-        get_property (conn, BATTERY, "State", DBUS_TYPE_UINT32, &state);
-        get_property (conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, &energy);
-        get_property (
-            conn, BATTERY, "Percentage", DBUS_TYPE_DOUBLE, &percentage_float
+        dbus_get_property (conn, BATTERY, "State", DBUS_TYPE_UINT32, state);
+        dbus_get_property (conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, energy);
+        dbus_get_property (
+            conn, BATTERY, "Percentage", DBUS_TYPE_DOUBLE, percentage
         );
-        get_property (
-            conn, BATTERY, "EnergyRate", DBUS_TYPE_DOUBLE, &energy_rate
+        dbus_get_property (
+            conn, BATTERY, "EnergyRate", DBUS_TYPE_DOUBLE, energy_rate
         );
 
-        switch (state) {
+        switch (*state) {
         case CHARGING:
-            get_property (conn, BATTERY, "TimeToFull", DBUS_TYPE_INT64, &time);
+            dbus_get_property (
+                conn, BATTERY, "TimeToFull", DBUS_TYPE_INT64, time
+            );
             break;
         case DISCHARGING:
-            get_property (conn, BATTERY, "TimeToEmpty", DBUS_TYPE_INT64, &time);
+            dbus_get_property (
+                conn, BATTERY, "TimeToEmpty", DBUS_TYPE_INT64, time
+            );
             break;
         default:
             break;
@@ -120,30 +144,16 @@ static void update (size_t module_id) {
 
         // 如果有新消息，则再循环一次以获取最新状态
     } while (has_new_message);
+}
 
-    char *icons_charging[] = {
-        "\xf3\xb0\x82\x86", // 󰂆
-        "\xf3\xb0\x82\x87", // 󰂇
-        "\xf3\xb0\x82\x88", // 󰂈
-        "\xf3\xb0\x82\x89", // 󰂉
-        "\xf3\xb0\x82\x8a", // 󰂊
-        "\xf3\xb0\x82\x8b", // 󰂋
-        "\xf3\xb0\x82\x85"  // 󰂅
-    };
+static void update (size_t module_id) {
+    State state = UNKNOWN;
+    double energy = 0, percentage_float = 0, energy_rate = 0;
+    int64_t time = -1;
 
-    char *icons_discharging[] = {
-        "\xf3\xb0\x82\x8e", // 󰂎
-        "\xf3\xb0\x81\xba", // 󰁺
-        "\xf3\xb0\x81\xbb", // 󰁻
-        "\xf3\xb0\x81\xbc", // 󰁼
-        "\xf3\xb0\x81\xbd", // 󰁽
-        "\xf3\xb0\x81\xbe", // 󰁾
-        "\xf3\xb0\x81\xbf", // 󰁿
-        "\xf3\xb0\x82\x80", // 󰂀
-        "\xf3\xb0\x82\x81", // 󰂁
-        "\xf3\xb0\x82\x82", // 󰂂
-        "\xf3\xb0\x81\xb9", // 󰁹
-    };
+    get_battery_property (
+        module_id, &state, &percentage_float, &time, &energy, &energy_rate
+    );
 
     uint64_t percentage = percentage_float;
     char output_str[100], *output_p = output_str;
@@ -222,6 +232,9 @@ end_digits:
     cJSON_AddStringToObject (json, "markup", "pango");
     cJSON_AddStringToObject (json, "full_text", output_str);
 
+    if (modules[module_id].output) {
+        free (modules[module_id].output);
+    }
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
     cJSON_Delete (json);
@@ -231,38 +244,34 @@ static void alter (size_t module_id, uint64_t btn) {
     switch (btn) {
     case 3: // right button
         modules[module_id].state ^= 1;
+        modules[module_id].update (module_id);
         break;
     default:
         return;
     }
-    modules[module_id].update (module_id);
+}
+
+static void del (uint64_t module_id) {
+    dbus_connection_unref (modules[module_id].data.ptr);
 }
 
 void init_battery (int epoll_fd) {
-    INIT_BASE ();
+    INIT_BASE
 
+    // 初始化 dbus 错误
     DBusError err;
-    DBusConnection *conn;
-
     dbus_error_init (&err);
-    conn = dbus_bus_get (DBUS_BUS_SYSTEM, &err);
 
-    if (dbus_error_is_set (&err)) {
-        fprintf (stderr, "DBus error: %s\n", err.message);
-        dbus_error_free (&err);
-        exit (EXIT_FAILURE);
-    }
+    // 访问系统总线
+    DBusConnection *conn = dbus_bus_get (DBUS_BUS_SYSTEM, &err);
+    DBUS_ERROR_Q
 
     // 添加D-Bus信号匹配规则
     char *match_rule =
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "path='" BATTERY "',arg0='" DEVICE_INTERFACE "'";
-
     dbus_bus_add_match (conn, match_rule, &err);
-    if (dbus_error_is_set (&err)) {
-        dbus_error_free (&err);
-        return;
-    }
+    DBUS_ERROR_Q
 
     // 添加D-Bus连接到epoll
     int dbus_fd;
@@ -278,8 +287,7 @@ void init_battery (int epoll_fd) {
     modules[module_id].data.ptr = conn;
     modules[module_id].update = update;
     modules[module_id].alter = alter;
+    modules[module_id].del = del;
 
-    dbus_connection_unref (conn);
-
-    UPDATE_Q ();
+    UPDATE_Q
 }

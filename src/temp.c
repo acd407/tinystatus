@@ -9,19 +9,6 @@
 #define Tdie "/sys/class/hwmon/hwmon3/temp1_input"
 
 static void update (size_t module_id) {
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
-    cJSON *json = cJSON_CreateObject ();
-
-    char name[] = "A";
-    *name += module_id;
-
-    cJSON_AddStringToObject (json, "name", name);
-    cJSON_AddFalseToObject (json, "separator");
-    cJSON_AddNumberToObject (json, "separator_block_width", 0);
-    cJSON_AddStringToObject (json, "markup", "pango");
-
     char output_str[] = "ico\u200435.3";
 
     double temp = read_uint64_file (Tdie) / 1e3;
@@ -40,7 +27,6 @@ static void update (size_t module_id) {
         output_str + 3, sizeof (output_str) - 3, "\u2004%3.*f",
         temp < 10 ? 2 : 1, temp
     );
-    cJSON_AddStringToObject (json, "full_text", output_str);
 
     char *colors[] = {COOL, IDLE, WARNING, CRITICAL};
     if (temp < 30)
@@ -51,8 +37,22 @@ static void update (size_t module_id) {
         idx = 2;
     else
         idx = 3;
+
+    cJSON *json = cJSON_CreateObject ();
+
+    char name[] = "A";
+    *name += module_id;
+
+    cJSON_AddStringToObject (json, "name", name);
+    cJSON_AddFalseToObject (json, "separator");
+    cJSON_AddNumberToObject (json, "separator_block_width", 0);
+    cJSON_AddStringToObject (json, "markup", "pango");
+    cJSON_AddStringToObject (json, "full_text", output_str);
     cJSON_AddStringToObject (json, "color", colors[idx]);
 
+    if (modules[module_id].output) {
+        free (modules[module_id].output);
+    }
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
     cJSON_Delete (json);
@@ -60,10 +60,10 @@ static void update (size_t module_id) {
 
 void init_temp (int epoll_fd) {
     (void) epoll_fd;
-    INIT_BASE ();
+    INIT_BASE
 
     modules[module_id].update = update;
     modules[module_id].interval = 1;
 
-    UPDATE_Q ();
+    UPDATE_Q
 }

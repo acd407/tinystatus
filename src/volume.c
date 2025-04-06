@@ -50,21 +50,6 @@ int64_t get_volume (snd_mixer_t *handle) {
 }
 
 static void update (size_t module_id) {
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
-
-    cJSON *json = cJSON_CreateObject ();
-
-    char name[] = "A";
-    *name += module_id;
-
-    cJSON_AddStringToObject (json, "name", name);
-    cJSON_AddFalseToObject (json, "separator");
-    cJSON_AddNumberToObject (json, "separator_block_width", 0);
-    cJSON_AddStringToObject (json, "markup", "pango");
-    cJSON_AddStringToObject (json, "color", IDLE);
-
     int64_t volume = get_volume (modules[module_id].data.ptr);
     volume = (volume + 1) / 5 * 5;
     char output_str[] = "󰕾\u2004INF\0";
@@ -84,8 +69,22 @@ static void update (size_t module_id) {
     } else if (volume < 200) {
         snprintf (output_str, sizeof (output_str), "󰝝\u2004%3lu%%", volume);
     }
+
+    cJSON *json = cJSON_CreateObject ();
+
+    char name[] = "A";
+    *name += module_id;
+
+    cJSON_AddStringToObject (json, "name", name);
+    cJSON_AddFalseToObject (json, "separator");
+    cJSON_AddNumberToObject (json, "separator_block_width", 0);
+    cJSON_AddStringToObject (json, "markup", "pango");
+    cJSON_AddStringToObject (json, "color", IDLE);
     cJSON_AddStringToObject (json, "full_text", output_str);
 
+    if (modules[module_id].output) {
+        free (modules[module_id].output);
+    }
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
     cJSON_Delete (json);
@@ -110,7 +109,7 @@ static void alter (size_t module_id, uint64_t btn) {
 }
 
 void init_volume (int epoll_fd) {
-    INIT_BASE ();
+    INIT_BASE
     snd_mixer_t *handle;
     int err;
 
@@ -152,5 +151,5 @@ void init_volume (int epoll_fd) {
     // 保存混音器句柄
     modules[module_id].data.ptr = handle;
 
-    UPDATE_Q ();
+    UPDATE_Q
 }

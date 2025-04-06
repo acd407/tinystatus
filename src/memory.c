@@ -38,9 +38,18 @@ static void get_usage (uint64_t *used, double *percent) {
 }
 
 static void update (size_t module_id) {
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
+    char output_str[] = "\xf3\xb0\x8d\x9b\u20040.00K"; // 󰍛
+    uint64_t used;
+    double usage;
+    get_usage (&used, &usage);
+    format_storage_units (output_str + 7, used);
+
+    char *colors[] = {IDLE, WARNING, CRITICAL};
+    char *color = colors[0];
+    if (usage > 50)
+        color = colors[1];
+    if (usage > 80)
+        color = colors[2];
 
     cJSON *json = cJSON_CreateObject ();
 
@@ -51,24 +60,12 @@ static void update (size_t module_id) {
     cJSON_AddFalseToObject (json, "separator");
     cJSON_AddNumberToObject (json, "separator_block_width", 0);
     cJSON_AddStringToObject (json, "markup", "pango");
-
-    // 󰍛: 4 byte
-    // \u2004: 3 byte
-    char output_str[] = "󰍛\u20040.00K";
-    uint64_t used;
-    double usage;
-    get_usage (&used, &usage);
-    format_storage_units (output_str + 7, used);
+    cJSON_AddStringToObject (json, "color", color);
     cJSON_AddStringToObject (json, "full_text", output_str);
 
-    char *colors[] = {IDLE, WARNING, CRITICAL};
-    char *color = colors[0];
-    if (usage > 50)
-        color = colors[1];
-    if (usage > 80)
-        color = colors[2];
-    cJSON_AddStringToObject (json, "color", color);
-
+    if (modules[module_id].output) {
+        free (modules[module_id].output);
+    }
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
     cJSON_Delete (json);
@@ -76,10 +73,10 @@ static void update (size_t module_id) {
 
 void init_memory (int epoll_fd) {
     (void) epoll_fd;
-    INIT_BASE();
+    INIT_BASE
 
     modules[module_id].update = update;
     modules[module_id].interval = 2;
 
-    UPDATE_Q ();
+    UPDATE_Q
 }

@@ -16,6 +16,24 @@
 
 #define BUF_LEN (5 * (sizeof (struct inotify_event)))
 
+static const char *icons[] = {
+    "\ue3d5", // 
+    "\ue3d4", // 
+    "\ue3d3", // 
+    "\ue3d2", // 
+    "\ue3d1", // 
+    "\ue3d0", // 
+    "\ue3cf", // 
+    "\ue3ce", // 
+    "\ue3cd", // 
+    "\ue3cc", // 
+    "\ue3cb", // 
+    "\ue3ca", // 
+    "\ue3c9", // 
+    "\ue3c8", // 
+    "\ue3e3", // 
+};
+
 static int create_inotify () {
     int inotify_fd;
     int wd;
@@ -39,9 +57,26 @@ static int create_inotify () {
 }
 
 static void update (size_t module_id) {
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
+    // 读取 inotify 事件
+    char buffer[BUF_LEN];
+    ssize_t len = read (modules[module_id].fds[0], buffer, BUF_LEN);
+    if (len == -1 && errno != EAGAIN) {
+        perror ("read");
+        exit (EXIT_FAILURE);
     }
+
+    // 处理事件
+    uint64_t brightness = read_uint64_file (BRIGHTNESS) * 100 / 255;
+    assert (brightness <= 100);
+    brightness = (brightness + 1) / 5 * 5;
+    size_t idx = sizeof (icons) / sizeof (char *) * brightness / 101;
+
+    char output_str[] = "\ue3e0\u2004100%";
+    snprintf (
+        output_str, sizeof (output_str), "%s\u2004%*ld%%", icons[idx],
+        brightness == 100 ? 3 : 2, brightness
+    );
+
     cJSON *json = cJSON_CreateObject ();
 
     char name[] = "A";
@@ -52,43 +87,11 @@ static void update (size_t module_id) {
     cJSON_AddNumberToObject (json, "separator_block_width", 0);
     cJSON_AddStringToObject (json, "markup", "pango");
     cJSON_AddStringToObject (json, "color", IDLE);
-
-    // 读取 inotify 事件
-    char buffer[BUF_LEN];
-    ssize_t len = read (modules[module_id].fds[0], buffer, BUF_LEN);
-    if (len == -1 && errno != EAGAIN) {
-        perror ("read");
-        exit (EXIT_FAILURE);
-    }
-    // 处理事件
-    uint64_t brightness = read_uint64_file (BRIGHTNESS) * 100 / 255;
-    assert (brightness <= 100);
-    brightness = (brightness + 1) / 5 * 5;
-    char *icons[] = {
-        "\ue3d5", // 
-        "\ue3d4", // 
-        "\ue3d3", // 
-        "\ue3d2", // 
-        "\ue3d1", // 
-        "\ue3d0", // 
-        "\ue3cf", // 
-        "\ue3ce", // 
-        "\ue3cd", // 
-        "\ue3cc", // 
-        "\ue3cb", // 
-        "\ue3ca", // 
-        "\ue3c9", // 
-        "\ue3c8", // 
-        "\ue3e3", // 
-    };
-    size_t idx = sizeof (icons) / sizeof (char *) * brightness / 101;
-    char output_str[] = "\ue3e0\u2004100%";
-    snprintf (
-        output_str, sizeof (output_str), "%s\u2004%*ld%%", icons[idx],
-        brightness == 100 ? 3 : 2, brightness
-    );
     cJSON_AddStringToObject (json, "full_text", output_str);
 
+    if (modules[module_id].output) {
+        free (modules[module_id].output);
+    }
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
     cJSON_Delete (json);
@@ -107,7 +110,7 @@ static void alter (size_t module_id, uint64_t btn) {
 }
 
 void init_backlight (int epoll_fd) {
-    INIT_BASE ();
+    INIT_BASE
 
     int inotify_fd = create_inotify ();
 
@@ -128,5 +131,5 @@ void init_backlight (int epoll_fd) {
     modules[module_id].update = update;
     modules[module_id].alter = alter;
 
-    UPDATE_Q ();
+    UPDATE_Q
 }
