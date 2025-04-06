@@ -35,6 +35,7 @@ static void output () {
 static void init (int epoll_fd) { // 注册的顺序，决定输出的顺序
     // 在注册时同时完成的第一次 update
     modules_cnt = 0;
+    init_battery (epoll_fd);
     init_backlight (epoll_fd);
     init_volume (epoll_fd);
     init_network (epoll_fd);

@@ -1,4 +1,5 @@
 void init_backlight (int epoll_fd);
+void init_battery (int epoll_fd);
 void init_cpu (int epoll_fd);
 void init_date (int epoll_fd);
 void init_gpu (int epoll_fd);

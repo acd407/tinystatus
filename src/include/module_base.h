@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <main.h>
 
+#define DEACTIVE "#6A6862"
 #define COOL "#729FCF"
 #define GOOD "#98BC37"
 #define IDLE "#FCE8C3"

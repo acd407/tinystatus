@@ -4,8 +4,10 @@ CFLAGS = -Wall -Wextra -MMD -MP -Isrc/include -O2
 LDFLAGS = -lm -s
 
 CFLAGS += $(shell pkg-config --cflags libcjson)
+CFLAGS += $(shell pkg-config --cflags dbus-1)
 LDFLAGS += $(shell pkg-config --libs libcjson)
 LDFLAGS += $(shell pkg-config --libs alsa)
+LDFLAGS += $(shell pkg-config --libs dbus-1)
 
 SRC_DIR = src
 OBJ_DIR = obj
