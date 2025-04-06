@@ -12,19 +12,7 @@
 
 #define UPOWER_SERVICE "org.freedesktop.UPower"
 #define DEVICE_INTERFACE "org.freedesktop.UPower.Device"
-#define MAX_EVENTS 10
 #define BATTERY "/org/freedesktop/UPower/devices/battery_BAT0"
-
-// 将秒数转换为小时和分钟的可读格式
-void format_time (char *buffer, size_t buffer_size, double seconds) {
-    if (seconds <= 0) {
-        snprintf (buffer, buffer_size, "unknown");
-    } else {
-        int hours = seconds / 3600;
-        int minutes = (seconds - hours * 3600) / 60;
-        snprintf (buffer, buffer_size, "%d:%02d", hours, minutes);
-    }
-}
 
 // 获取电池属性值
 void get_property (
@@ -93,39 +81,45 @@ static void update (size_t module_id) {
 
     State state;
     double energy, percentage_float, energy_rate;
-    int64_t time;
-    // 最后一个消息覆盖之前的消息
-    while ((msg = dbus_connection_pop_message (conn)) != NULL) {
-        if (dbus_message_is_signal (
-                msg, "org.freedesktop.DBus.Properties", "PropertiesChanged"
-            )) {
-            get_property (conn, BATTERY, "State", DBUS_TYPE_UINT32, &state);
-            get_property (conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, &energy);
-            get_property (
-                conn, BATTERY, "Percentage", DBUS_TYPE_DOUBLE, &percentage_float
-            );
+    int64_t time = 0;
+    bool has_new_message = false;
 
-            get_property (
-                conn, BATTERY, "EnergyRate", DBUS_TYPE_DOUBLE, &energy_rate
-            );
+    // 使用 do-while 确保至少获取一次状态
+    do {
+        // 获取当前电池状态
+        get_property (conn, BATTERY, "State", DBUS_TYPE_UINT32, &state);
+        get_property (conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, &energy);
+        get_property (
+            conn, BATTERY, "Percentage", DBUS_TYPE_DOUBLE, &percentage_float
+        );
+        get_property (
+            conn, BATTERY, "EnergyRate", DBUS_TYPE_DOUBLE, &energy_rate
+        );
 
-            switch (state) {
-            case CHARGING:
-                get_property (
-                    conn, BATTERY, "TimeToFull", DBUS_TYPE_INT64, &time
-                );
-                break;
-            case DISCHARGING:
-                get_property (
-                    conn, BATTERY, "TimeToEmpty", DBUS_TYPE_INT64, &time
-                );
-                break;
-            default:
-                break;
-            }
+        switch (state) {
+        case CHARGING:
+            get_property (conn, BATTERY, "TimeToFull", DBUS_TYPE_INT64, &time);
+            break;
+        case DISCHARGING:
+            get_property (conn, BATTERY, "TimeToEmpty", DBUS_TYPE_INT64, &time);
+            break;
+        default:
+            break;
         }
-        dbus_message_unref (msg);
-    }
+
+        // 检查是否有新消息需要处理
+        has_new_message = false;
+        while ((msg = dbus_connection_pop_message (conn)) != NULL) {
+            if (dbus_message_is_signal (
+                    msg, "org.freedesktop.DBus.Properties", "PropertiesChanged"
+                )) {
+                has_new_message = true;
+            }
+            dbus_message_unref (msg);
+        }
+
+        // 如果有新消息，则再循环一次以获取最新状态
+    } while (has_new_message);
 
     char *icons_charging[] = {
         "\xf3\xb0\x82\x86", // 󰂆
@@ -152,10 +146,12 @@ static void update (size_t module_id) {
     };
 
     uint64_t percentage = percentage_float;
-    char output_str[80], *output_p = output_str;
+    char output_str[100], *output_p = output_str;
+
     char *colors[] = {CRITICAL, WARNING, IDLE};
     size_t colors_idx = percentage < 20 ? 0 : (percentage < 40 ? 1 : 2);
-    switch (state) {
+
+    switch (state) { // 输出图标
     case CHARGING:
     case FULLY_CHARGED: {
         size_t idx =
@@ -182,12 +178,37 @@ static void update (size_t module_id) {
             output_p, sizeof (output_str) - (output_p - output_str),
             "<span color='" DEACTIVE "'>\xf3\xb1\xa0\xb5</span>" // 󱠵
         );
-        break;
+        goto end_digits;
     }
-    output_p += snprintf (
-        output_p, sizeof (output_str) - (output_p - output_str),
-        "\u2004<span color='%s'>%ld%%</span>", colors[colors_idx], percentage
-    );
+
+    // 输出文字
+    if (modules[module_id].state) {
+        output_p += snprintf (
+            output_p, sizeof (output_str) - (output_p - output_str),
+            "\u2004<span color='%s'>%.1fWh</span>", colors[colors_idx], energy
+        );
+        if (time > 0) {
+            output_p += snprintf (
+                output_p, sizeof (output_str) - (output_p - output_str),
+                "\u2004(%.1fW)", energy_rate
+            );
+        }
+    } else {
+        output_p += snprintf (
+            output_p, sizeof (output_str) - (output_p - output_str),
+            "\u2004<span color='%s'>%ld%%</span>", colors[colors_idx],
+            percentage
+        );
+        if (time > 0) {
+            uint64_t hours = time / 3600;
+            uint64_t minutes = (time - hours * 3600) / 60;
+            output_p += snprintf (
+                output_p, sizeof (output_str) - (output_p - output_str),
+                "\u2004(%ld:%02ld)", hours, minutes
+            );
+        }
+    }
+end_digits:
 
     cJSON *json = cJSON_CreateObject ();
 
@@ -204,6 +225,17 @@ static void update (size_t module_id) {
     modules[module_id].output = cJSON_PrintUnformatted (json);
 
     cJSON_Delete (json);
+}
+
+static void alter (size_t module_id, uint64_t btn) {
+    switch (btn) {
+    case 3: // right button
+        modules[module_id].state ^= 1;
+        break;
+    default:
+        return;
+    }
+    modules[module_id].update (module_id);
 }
 
 void init_battery (int epoll_fd) {
@@ -245,7 +277,7 @@ void init_battery (int epoll_fd) {
 
     modules[module_id].data.ptr = conn;
     modules[module_id].update = update;
-    // modules[module_id].alter = alter;
+    modules[module_id].alter = alter;
 
     dbus_connection_unref (conn);
 
