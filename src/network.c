@@ -128,13 +128,17 @@ static void format_ether_output (
     }
 
     if (modules[module_id].state) {
+        char speed_path[21 + 16];
+        snprintf (
+            speed_path, sizeof (speed_path), "/sys/class/net/%s/speed", ifname
+        );
+        uint64_t speed = read_uint64_file (speed_path);
+        snprintf (buffer, buffer_size, "\u2004%ldM", speed);
+    } else {
         char rxs[5 + 1], txs[5 + 1];
         format_storage_units (rxs, rx);
         format_storage_units (txs, tx);
         snprintf (buffer, buffer_size, "\u2004%s\u2004%s", rxs, txs);
-    } else {
-        // 输出链路速率 /sys/class/net/br0/speed
-        snprintf (buffer, buffer_size, "\u2004%s", ifname);
     }
 }
 
