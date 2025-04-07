@@ -10,7 +10,7 @@
 
 ## 特点
 
-覆盖了大多数 [`i3status-rs`](https://github.com/greshake/i3status-rust) 的功能。
+覆盖了大多数 [`i3status-rs`](https://github.com/greshake/i3status-rust) 的核心功能。
 如：
 
 - 实时响应输入（鼠标单击、滚轮滑动）
@@ -18,19 +18,19 @@
 - 实时监控 `dbus`
 - 实时监控 `ALSA`
 
-总的来说，由于项目采用 `epoll`，任何可以转换为 `fd` 的资源都可以被异步监听。
+总的来说，由于项目采用 `epoll`，任何可以转换为文件描述符的资源都可以被异步监听。
 
 使用了面向对象的思想，所有模块在初始化时，
-将自己的所有信息注册到 module_t modules[] 中。
-随后有匹配 module_id 的事件时，由核心模块调用模块们对应的方法。
+将自己的所有信息注册到 `module_t modules[]` 中。
+随后有匹配 `module_id` 的事件时，由核心模块调用模块们对应的方法。
 
 ## 实现的模块
 
 ### 核心模块
 
-- `main.c`：主文件，创建 epoll 实例，并监听所有 init 中注册的文件描述符。根据子模块注册 epoll 项时填入的 module_id，选择对应模块的 update 方法，来更新模块的 output。
-- `timer.c`：计时器，每秒激活一次，调用 interval 不为 0 的模块的 update 方法。
-- `stdin.c`：处理标准输入，如按键单击、鼠标滚轮事件。并根据输入 json 的 name 字段，调用对应模块的 alter 方法，改变模块状态。
+- `main.c`：主文件，创建 `epoll` 实例，并监听所有 `init` 中注册的文件描述符。根据子模块注册 `epoll` 项时填入的 `module_id`，选择对应模块的 `update` 方法，来更新模块的 `output`。
+- `timer.c`：计时器，每秒激活一次，调用 `interval` 不为 0 的模块的 `update` 方法。
+- `stdin.c`：处理标准输入，如按键单击、鼠标滚轮事件。并根据输入 `json` 的 `name` 字段，调用对应模块的 `alter` 方法，改变模块状态。
 
 ### 输出模块
 
