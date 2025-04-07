@@ -248,7 +248,8 @@ void init_battery (int epoll_fd) {
     DBusConnection *conn = dbus_bus_get (DBUS_BUS_SYSTEM, &err);
     if (dbus_error_is_set (&err)) {
         dbus_error_free (&err);
-        exit (EXIT_FAILURE);
+        modules_cnt--;
+        return;
     }
 
     // 添加D-Bus信号匹配规则
@@ -258,7 +259,9 @@ void init_battery (int epoll_fd) {
     dbus_bus_add_match (conn, match_rule, &err);
     if (dbus_error_is_set (&err)) {
         dbus_error_free (&err);
-        exit (EXIT_FAILURE);
+        dbus_connection_unref (conn);
+        modules_cnt--;
+        return;
     }
 
     // 添加D-Bus连接到epoll
@@ -269,7 +272,9 @@ void init_battery (int epoll_fd) {
     ev.data.u64 = module_id;
     if (epoll_ctl (epoll_fd, EPOLL_CTL_ADD, dbus_fd, &ev) == -1) {
         perror ("epoll_ctl: dbus_fd");
-        exit (EXIT_FAILURE);
+        dbus_connection_unref (conn);
+        modules_cnt--;
+        return;
     }
 
     modules[module_id].data.ptr = conn;

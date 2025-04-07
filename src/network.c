@@ -237,8 +237,8 @@ void init_network (int epoll_fd) {
     modules[module_id].alter = alter;
     modules[module_id].interval = 1;
     modules[module_id].data.ptr = malloc (sizeof (uint64_t) * 2);
-    ((uint64_t *) modules[module_id].data.ptr)[0] = 0;
-    ((uint64_t *) modules[module_id].data.ptr)[1] = 0;
+    ((uint64_t *) modules[module_id].data.ptr)[0] = 0; // prev_rx
+    ((uint64_t *) modules[module_id].data.ptr)[1] = 0; // prev_tx
     modules[module_id].del = del;
 
     UPDATE_Q (module_id);

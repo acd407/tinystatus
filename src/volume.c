@@ -115,7 +115,8 @@ void init_volume (int epoll_fd) {
     // 打开默认混音器
     if ((err = snd_mixer_open (&handle, 0)) < 0) {
         fprintf (stderr, "无法打开混音器: %s\n", snd_strerror (err));
-        exit (EXIT_FAILURE);
+        modules_cnt--;
+        return;
     }
 
     // 加载混音器
@@ -124,7 +125,8 @@ void init_volume (int epoll_fd) {
         (err = snd_mixer_load (handle)) < 0) {
         fprintf (stderr, "混音器初始化失败: %s\n", snd_strerror (err));
         snd_mixer_close (handle);
-        exit (EXIT_FAILURE);
+        modules_cnt--;
+        return;
     }
 
     // 获取 ALSA 混音器的文件描述符
@@ -132,7 +134,8 @@ void init_volume (int epoll_fd) {
     if (snd_mixer_poll_descriptors (handle, &pfd, 1) != 1) {
         fprintf (stderr, "无法获取混音器文件描述符\n");
         snd_mixer_close (handle);
-        exit (EXIT_FAILURE);
+        modules_cnt--;
+        return;
     }
 
     // 将文件描述符添加到 epoll
@@ -142,7 +145,8 @@ void init_volume (int epoll_fd) {
     if (epoll_ctl (epoll_fd, EPOLL_CTL_ADD, pfd.fd, &ev) == -1) {
         perror ("epoll_ctl failed");
         snd_mixer_close (handle);
-        exit (EXIT_FAILURE);
+        modules_cnt--;
+        return;
     }
 
     modules[module_id].update = update;
