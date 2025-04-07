@@ -94,7 +94,7 @@ typedef enum {
     LAST
 } State;
 
-static void get_battery_property (
+static bool get_battery_property (
     uint64_t module_id, State *state, double *percentage, int64_t *time,
     double *energy, double *energy_rate
 ) {
@@ -102,11 +102,19 @@ static void get_battery_property (
     dbus_connection_read_write (conn, 0);
 
     DBusMessage *msg;
-    bool has_new_message = false;
+    bool changed_msg = false;
 
-    // 使用 do-while 确保至少获取一次状态
-    do {
-        // 获取当前电池状态
+    // 检查是否有新消息需要处理
+    while ((msg = dbus_connection_pop_message (conn)) != NULL) {
+        if (dbus_message_is_signal (
+                msg, "org.freedesktop.DBus.Properties", "PropertiesChanged"
+            )) {
+            changed_msg = true;
+        }
+        dbus_message_unref (msg);
+    }
+
+    if (changed_msg) {
         dbus_get_property (conn, BATTERY, "State", DBUS_TYPE_UINT32, state);
         dbus_get_property (conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, energy);
         dbus_get_property (
@@ -130,30 +138,21 @@ static void get_battery_property (
         default:
             break;
         }
-
-        // 检查是否有新消息需要处理
-        has_new_message = false;
-        while ((msg = dbus_connection_pop_message (conn)) != NULL) {
-            if (dbus_message_is_signal (
-                    msg, "org.freedesktop.DBus.Properties", "PropertiesChanged"
-                )) {
-                has_new_message = true;
-            }
-            dbus_message_unref (msg);
-        }
-
-        // 如果有新消息，则再循环一次以获取最新状态
-    } while (has_new_message);
+    }
+    return changed_msg;
 }
 
 static void update (size_t module_id) {
     State state = UNKNOWN;
     double energy = 0, percentage_float = 0, energy_rate = 0;
-    int64_t time = -1;
+    int64_t time2ef = -1; // time to Empty/Full
 
-    get_battery_property (
-        module_id, &state, &percentage_float, &time, &energy, &energy_rate
+    bool changed = get_battery_property (
+        module_id, &state, &percentage_float, &time2ef, &energy, &energy_rate
     );
+    // output 为空（模块刚启动时）就继续执行
+    if (!changed && modules[module_id].output)
+        return;
 
     uint64_t percentage = percentage_float;
     char output_str[100], *output_p = output_str;
@@ -161,7 +160,8 @@ static void update (size_t module_id) {
     char *colors[] = {CRITICAL, WARNING, IDLE};
     size_t colors_idx = percentage < 20 ? 0 : (percentage < 40 ? 1 : 2);
 
-    switch (state) { // 输出图标
+    // 输出图标
+    switch (state) {
     case CHARGING:
     case FULLY_CHARGED: {
         size_t idx =
@@ -183,12 +183,12 @@ static void update (size_t module_id) {
         );
         break;
     }
-    default: // syncing
+    default: // 同步中
         output_p += snprintf (
             output_p, sizeof (output_str) - (output_p - output_str),
             "<span color='" DEACTIVE "'>\xf3\xb1\xa0\xb5</span>" // 󱠵
         );
-        goto end_digits;
+        goto generate_json;
     }
 
     // 输出文字
@@ -197,7 +197,7 @@ static void update (size_t module_id) {
             output_p, sizeof (output_str) - (output_p - output_str),
             "\u2004<span color='%s'>%.1fWh</span>", colors[colors_idx], energy
         );
-        if (time > 0) {
+        if (time2ef > 0) {
             output_p += snprintf (
                 output_p, sizeof (output_str) - (output_p - output_str),
                 "\u2004(%.1fW)", energy_rate
@@ -209,16 +209,17 @@ static void update (size_t module_id) {
             "\u2004<span color='%s'>%ld%%</span>", colors[colors_idx],
             percentage
         );
-        if (time > 0) {
-            uint64_t hours = time / 3600;
-            uint64_t minutes = (time - hours * 3600) / 60;
+        if (time2ef > 0) {
+            uint64_t hours = time2ef / 3600;
+            uint64_t minutes = (time2ef - hours * 3600) / 60;
             output_p += snprintf (
                 output_p, sizeof (output_str) - (output_p - output_str),
                 "\u2004(%ld:%02ld)", hours, minutes
             );
         }
     }
-end_digits:
+
+generate_json:
 
     cJSON *json = cJSON_CreateObject ();
 

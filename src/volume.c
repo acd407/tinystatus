@@ -25,7 +25,7 @@ int64_t get_volume (snd_mixer_t *handle) {
     if (!elem) {
         fprintf (stderr, "Unable to find Master control\n");
         snd_mixer_close (handle);
-        return 1;
+        return volume;
     }
 
     if (snd_mixer_selem_is_active (elem)) {
