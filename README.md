@@ -2,6 +2,8 @@
 
 `tinystatus` 是一个小巧的 `i3bar/swaybar` 的后端。
 
+<center><img src="res/img/effect.png" style="zoom:50%;" /></center>
+
 为了尽可能的小，`tinystatus` 并不支持配置文件。
 这应仅仅作为一个示例项目，用户应该在获取代码后修改各个模块中的宏，
 以适应自己的设备（像 `dwm` 一样）。
