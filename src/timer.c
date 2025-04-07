@@ -45,7 +45,7 @@ static void update (size_t module_id) {
 }
 
 void init_timer (int epoll_fd) {
-    INIT_BASE
+    INIT_BASE;
 
     // 从某种意义上讲，timer 是实时的，因此下面的代码是在注册 epoll
     int timer_fd = create_timer ();
@@ -64,5 +64,5 @@ void init_timer (int epoll_fd) {
     modules[module_id].update = update;
     modules[module_id].data.num = 0;
 
-    UPDATE_Q
+    UPDATE_Q (module_id);
 }

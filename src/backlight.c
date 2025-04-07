@@ -34,28 +34,6 @@ static const char *icons[] = {
     "\ue3e3", // 
 };
 
-static int create_inotify () {
-    int inotify_fd;
-    int wd;
-
-    // 初始化 inotify
-    inotify_fd = inotify_init1 (IN_NONBLOCK);
-    if (inotify_fd == -1) {
-        perror ("inotify_init1");
-        exit (EXIT_FAILURE);
-    }
-
-    // 添加需要监控的文件
-    wd = inotify_add_watch (inotify_fd, BRIGHTNESS, IN_MODIFY);
-    if (wd == -1) {
-        perror ("inotify_add_watch");
-        close (inotify_fd);
-        exit (EXIT_FAILURE);
-    }
-
-    return inotify_fd;
-}
-
 static void update (size_t module_id) {
     // 读取 inotify 事件
     char buffer[BUF_LEN];
@@ -110,9 +88,23 @@ static void alter (size_t module_id, uint64_t btn) {
 }
 
 void init_backlight (int epoll_fd) {
-    INIT_BASE
+    INIT_BASE;
 
-    int inotify_fd = create_inotify ();
+    // 初始化 inotify
+    int inotify_fd = inotify_init1 (IN_NONBLOCK);
+    if (inotify_fd == -1) {
+        perror ("inotify_init1");
+        modules_cnt--;
+        return;
+    }
+
+    // 添加需要监控的文件
+    if (inotify_add_watch (inotify_fd, BRIGHTNESS, IN_MODIFY) == -1) {
+        perror ("inotify_add_watch");
+        close (inotify_fd);
+        modules_cnt--;
+        return;
+    }
 
     // 将 inotify 文件描述符添加到 epoll
     struct epoll_event ev;
@@ -121,8 +113,8 @@ void init_backlight (int epoll_fd) {
     if (epoll_ctl (epoll_fd, EPOLL_CTL_ADD, inotify_fd, &ev) == -1) {
         perror ("epoll_ctl");
         close (inotify_fd);
-        close (epoll_fd);
-        exit (EXIT_FAILURE);
+        modules_cnt--;
+        return;
     }
 
     modules[module_id].fds = malloc (sizeof (int) * 2);
@@ -131,5 +123,5 @@ void init_backlight (int epoll_fd) {
     modules[module_id].update = update;
     modules[module_id].alter = alter;
 
-    UPDATE_Q
+    UPDATE_Q (module_id);
 }

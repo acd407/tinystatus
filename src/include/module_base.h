@@ -21,6 +21,8 @@
     modules[module_id].data.ptr = NULL;
 
 // 刷新那些不随时间刷新的 modules
-#define UPDATE_Q                                                               \
-    if (modules[module_id].interval == 0)                                      \
-        update (module_id);
+#define UPDATE_Q(module_id)                                                    \
+    do {                                                                       \
+        if (modules[module_id].interval == 0)                                  \
+            update (module_id);                                                \
+    } while (0)

@@ -14,12 +14,6 @@
 #define DEVICE_INTERFACE "org.freedesktop.UPower.Device"
 #define BATTERY "/org/freedesktop/UPower/devices/battery_BAT0"
 
-#define DBUS_ERROR_Q                                                           \
-    if (dbus_error_is_set (&err)) {                                            \
-        dbus_error_free (&err);                                                \
-        exit (EXIT_FAILURE);                                                   \
-    }
-
 static const char *icons_charging[] = {
     "\xf3\xb0\x82\x86", // 󰂆
     "\xf3\xb0\x82\x87", // 󰂇
@@ -67,7 +61,10 @@ static void dbus_get_property (
     DBusMessage *reply =
         dbus_connection_send_with_reply_and_block (conn, msg, -1, &err);
     dbus_message_unref (msg);
-    DBUS_ERROR_Q
+    if (dbus_error_is_set (&err)) {
+        dbus_error_free (&err);
+        exit (EXIT_FAILURE);
+    }
 
     DBusMessageIter iter, variant;
     dbus_message_iter_init (reply, &iter);
@@ -94,52 +91,38 @@ typedef enum {
     LAST
 } State;
 
-static bool get_battery_property (
+static void get_battery_property (
     uint64_t module_id, State *state, double *percentage, int64_t *time,
     double *energy, double *energy_rate
 ) {
     DBusConnection *conn = modules[module_id].data.ptr;
     dbus_connection_read_write (conn, 0);
 
-    DBusMessage *msg;
-    bool changed_msg = false;
+    dbus_get_property (conn, BATTERY, "State", DBUS_TYPE_UINT32, state);
+    dbus_get_property (conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, energy);
+    dbus_get_property (
+        conn, BATTERY, "Percentage", DBUS_TYPE_DOUBLE, percentage
+    );
+    dbus_get_property (
+        conn, BATTERY, "EnergyRate", DBUS_TYPE_DOUBLE, energy_rate
+    );
 
-    // 检查是否有新消息需要处理
+    switch (*state) {
+    case CHARGING:
+        dbus_get_property (conn, BATTERY, "TimeToFull", DBUS_TYPE_INT64, time);
+        break;
+    case DISCHARGING:
+        dbus_get_property (conn, BATTERY, "TimeToEmpty", DBUS_TYPE_INT64, time);
+        break;
+    default:
+        break;
+    }
+
+    // 清理所有的消息
+    DBusMessage *msg;
     while ((msg = dbus_connection_pop_message (conn)) != NULL) {
-        if (dbus_message_is_signal (
-                msg, "org.freedesktop.DBus.Properties", "PropertiesChanged"
-            )) {
-            changed_msg = true;
-        }
         dbus_message_unref (msg);
     }
-
-    if (changed_msg) {
-        dbus_get_property (conn, BATTERY, "State", DBUS_TYPE_UINT32, state);
-        dbus_get_property (conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, energy);
-        dbus_get_property (
-            conn, BATTERY, "Percentage", DBUS_TYPE_DOUBLE, percentage
-        );
-        dbus_get_property (
-            conn, BATTERY, "EnergyRate", DBUS_TYPE_DOUBLE, energy_rate
-        );
-
-        switch (*state) {
-        case CHARGING:
-            dbus_get_property (
-                conn, BATTERY, "TimeToFull", DBUS_TYPE_INT64, time
-            );
-            break;
-        case DISCHARGING:
-            dbus_get_property (
-                conn, BATTERY, "TimeToEmpty", DBUS_TYPE_INT64, time
-            );
-            break;
-        default:
-            break;
-        }
-    }
-    return changed_msg;
 }
 
 static void update (size_t module_id) {
@@ -147,12 +130,9 @@ static void update (size_t module_id) {
     double energy = 0, percentage_float = 0, energy_rate = 0;
     int64_t time2ef = -1; // time to Empty/Full
 
-    bool changed = get_battery_property (
+    get_battery_property (
         module_id, &state, &percentage_float, &time2ef, &energy, &energy_rate
     );
-    // output 为空（模块刚启动时）就继续执行
-    if (!changed && modules[module_id].output)
-        return;
 
     uint64_t percentage = percentage_float;
     char output_str[100], *output_p = output_str;
@@ -243,12 +223,13 @@ generate_json:
 
 static void alter (size_t module_id, uint64_t btn) {
     switch (btn) {
+    case 2:
+        system ("gnome-power-statistics &");
+        break;
     case 3: // right button
         modules[module_id].state ^= 1;
         modules[module_id].update (module_id);
         break;
-    default:
-        return;
     }
 }
 
@@ -257,7 +238,7 @@ static void del (uint64_t module_id) {
 }
 
 void init_battery (int epoll_fd) {
-    INIT_BASE
+    INIT_BASE;
 
     // 初始化 dbus 错误
     DBusError err;
@@ -265,14 +246,20 @@ void init_battery (int epoll_fd) {
 
     // 访问系统总线
     DBusConnection *conn = dbus_bus_get (DBUS_BUS_SYSTEM, &err);
-    DBUS_ERROR_Q
+    if (dbus_error_is_set (&err)) {
+        dbus_error_free (&err);
+        exit (EXIT_FAILURE);
+    }
 
     // 添加D-Bus信号匹配规则
     char *match_rule =
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "path='" BATTERY "',arg0='" DEVICE_INTERFACE "'";
     dbus_bus_add_match (conn, match_rule, &err);
-    DBUS_ERROR_Q
+    if (dbus_error_is_set (&err)) {
+        dbus_error_free (&err);
+        exit (EXIT_FAILURE);
+    }
 
     // 添加D-Bus连接到epoll
     int dbus_fd;
@@ -290,5 +277,5 @@ void init_battery (int epoll_fd) {
     modules[module_id].alter = alter;
     modules[module_id].del = del;
 
-    UPDATE_Q
+    UPDATE_Q (module_id);
 }

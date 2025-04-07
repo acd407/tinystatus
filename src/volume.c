@@ -8,7 +8,6 @@
 #include <sys/epoll.h>
 #include <tools.h>
 #include <unistd.h>
-#define max(x, y) ((x) > (y) ? (x) : (y))
 
 int64_t get_volume (snd_mixer_t *handle) {
     snd_mixer_handle_events (handle); // 让 ALSA 处理事件，刷新 ALSA
@@ -109,7 +108,7 @@ static void alter (size_t module_id, uint64_t btn) {
 }
 
 void init_volume (int epoll_fd) {
-    INIT_BASE
+    INIT_BASE;
     snd_mixer_t *handle;
     int err;
 
@@ -151,5 +150,5 @@ void init_volume (int epoll_fd) {
     // 保存混音器句柄
     modules[module_id].data.ptr = handle;
 
-    UPDATE_Q
+    UPDATE_Q (module_id);
 }

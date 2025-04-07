@@ -231,7 +231,7 @@ static void del (size_t module_id) {
 
 void init_network (int epoll_fd) {
     (void) epoll_fd;
-    INIT_BASE
+    INIT_BASE;
 
     modules[module_id].update = update;
     modules[module_id].alter = alter;
@@ -241,5 +241,5 @@ void init_network (int epoll_fd) {
     ((uint64_t *) modules[module_id].data.ptr)[1] = 0;
     modules[module_id].del = del;
 
-    UPDATE_Q
+    UPDATE_Q (module_id);
 }

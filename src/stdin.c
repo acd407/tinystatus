@@ -72,7 +72,7 @@ static void update (size_t module_id) {
 }
 
 void init_stdin (int epoll_fd) {
-    INIT_BASE
+    INIT_BASE;
 
     // 从某种意义上讲，stdin 是实时的，因此下面的代码是在注册 epoll
     set_nonblocking (STDIN_FILENO);
@@ -90,5 +90,5 @@ void init_stdin (int epoll_fd) {
     modules[module_id].fds[1] = -1;
     modules[module_id].update = update;
 
-    UPDATE_Q
+    UPDATE_Q (module_id);
 }

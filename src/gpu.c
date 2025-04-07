@@ -65,11 +65,11 @@ static void update (size_t module_id) {
 
 void init_gpu (int epoll_fd) {
     (void) epoll_fd;
-    INIT_BASE
+    INIT_BASE;
 
     modules[module_id].alter = alter;
     modules[module_id].update = update;
     modules[module_id].interval = 1;
 
-    UPDATE_Q
+    UPDATE_Q (module_id);
 }
