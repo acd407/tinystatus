@@ -45,30 +45,15 @@ static void update (size_t module_id) {
     format_storage_units (output_str + 7, used);
 
     char *colors[] = {IDLE, WARNING, CRITICAL};
-    char *color = colors[0];
-    if (usage > 50)
-        color = colors[1];
-    if (usage > 80)
-        color = colors[2];
+    size_t idx;
+    if (usage < 50)
+        idx = 0;
+    else if (usage < 80)
+        idx = 1;
+    else
+        idx = 2;
 
-    cJSON *json = cJSON_CreateObject ();
-
-    char name[] = "A";
-    *name += module_id;
-
-    cJSON_AddStringToObject (json, "name", name);
-    cJSON_AddFalseToObject (json, "separator");
-    cJSON_AddNumberToObject (json, "separator_block_width", 0);
-    cJSON_AddStringToObject (json, "markup", "pango");
-    cJSON_AddStringToObject (json, "color", color);
-    cJSON_AddStringToObject (json, "full_text", output_str);
-
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
-    modules[module_id].output = cJSON_PrintUnformatted (json);
-
-    cJSON_Delete (json);
+    update_json (module_id, output_str, colors[idx]);
 }
 
 void init_memory (int epoll_fd) {

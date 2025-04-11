@@ -193,30 +193,13 @@ static void update (size_t module_id) {
     else
         snprintf (output_str, sizeof (output_str), "\xf3\xb1\x9e\x90"); // 󱞐
 
-    cJSON *json = cJSON_CreateObject ();
-
-    char name[] = "A";
-    *name += module_id;
-
-    cJSON_AddStringToObject (json, "name", name);
-    cJSON_AddStringToObject (json, "color", IDLE);
-    cJSON_AddFalseToObject (json, "separator");
-    cJSON_AddNumberToObject (json, "separator_block_width", 0);
-    cJSON_AddStringToObject (json, "markup", "pango");
-    cJSON_AddStringToObject (json, "full_text", output_str);
-
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
-    modules[module_id].output = cJSON_PrintUnformatted (json);
-
-    cJSON_Delete (json);
+    update_json (module_id, output_str, IDLE);
 }
 
 static void alter (size_t module_id, uint64_t btn) {
     switch (btn) {
     case 2: // middle button
-        system ("iwgtk &");
+        system ("nm-connection-editor &");
         break;
     case 3: // right button
         modules[module_id].state ^= 1;

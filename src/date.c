@@ -16,24 +16,7 @@ static void update (size_t module_id) {
         output_str, sizeof (output_str), "%a\u2004%d\u2004%H:%M:%S", time_info
     );
 
-    cJSON *json = cJSON_CreateObject ();
-
-    char name[] = "A";
-    *name += module_id;
-
-    cJSON_AddStringToObject (json, "name", name);
-    cJSON_AddStringToObject (json, "color", IDLE);
-    cJSON_AddFalseToObject (json, "separator");
-    cJSON_AddNumberToObject (json, "separator_block_width", 0);
-    cJSON_AddStringToObject (json, "markup", "pango");
-    cJSON_AddStringToObject (json, "full_text", output_str);
-
-    if (modules[module_id].output) {
-        free (modules[module_id].output);
-    }
-    modules[module_id].output = cJSON_PrintUnformatted (json);
-
-    cJSON_Delete (json);
+    update_json (module_id, output_str, IDLE);
 }
 
 void init_date (int epoll_fd) {

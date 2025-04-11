@@ -1,3 +1,4 @@
+#include <cJSON.h>
 #include <main.h>
 #include <math.h>
 #include <stdio.h>
@@ -37,4 +38,25 @@ uint64_t read_uint64_file (char *file) {
     }
     fclose (file_soc);
     return ans;
+}
+
+void update_json (size_t module_id, char *output_str, char *color) {
+    cJSON *json = cJSON_CreateObject ();
+
+    char name[] = "A";
+    *name += module_id;
+
+    cJSON_AddStringToObject (json, "name", name);
+    cJSON_AddFalseToObject (json, "separator");
+    cJSON_AddNumberToObject (json, "separator_block_width", 0);
+    cJSON_AddStringToObject (json, "markup", "pango");
+    cJSON_AddStringToObject (json, "full_text", output_str);
+    cJSON_AddStringToObject (json, "color", color);
+
+    if (modules[module_id].output) {
+        free (modules[module_id].output);
+    }
+    modules[module_id].output = cJSON_PrintUnformatted (json);
+
+    cJSON_Delete (json);
 }
