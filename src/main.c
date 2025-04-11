@@ -42,6 +42,8 @@ static void init (int epoll_fd) { // 注册的顺序，决定输出的顺序
     init_gpu (epoll_fd);
     init_memory (epoll_fd);
     init_cpu (epoll_fd);
+    modules[modules_cnt - 1].state ^= 1;
+    init_cpu (epoll_fd);
     init_temp (epoll_fd);
     init_date (epoll_fd);
 
