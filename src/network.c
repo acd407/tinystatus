@@ -199,7 +199,7 @@ static void update (size_t module_id) {
 static void alter (size_t module_id, uint64_t btn) {
     switch (btn) {
     case 2: // middle button
-        system ("nm-connection-editor &");
+        system ("iwgtk &");
         break;
     case 3: // right button
         modules[module_id].state ^= 1;

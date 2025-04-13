@@ -19,11 +19,21 @@ static void update (size_t module_id) {
     update_json (module_id, output_str, IDLE);
 }
 
+static void alter (size_t module_id, uint64_t btn) {
+    (void) module_id;
+    switch (btn) {
+    case 2: // middle btn
+        system ("ksystemlog &");
+        break;
+    }
+}
+
 void init_date (int epoll_fd) {
     (void) epoll_fd;
     INIT_BASE;
 
     modules[module_id].update = update;
+    modules[module_id].alter = alter;
     modules[module_id].interval = 1;
 
     UPDATE_Q (module_id);
