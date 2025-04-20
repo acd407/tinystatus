@@ -149,6 +149,7 @@ void init_volume (int epoll_fd) {
     modules[module_id].alter = alter;
     // 保存混音器句柄
     modules[module_id].data.ptr = handle;
+    modules[module_id].interval = 1;
 
     UPDATE_Q (module_id);
 }
