@@ -1,4 +1,5 @@
 compile_commands.json
-obj/
 .cache/
 tinystatus
+*.o
+*.d

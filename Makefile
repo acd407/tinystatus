@@ -9,11 +9,8 @@ LDFLAGS += $(shell pkg-config --libs libcjson)
 LDFLAGS += $(shell pkg-config --libs alsa)
 LDFLAGS += $(shell pkg-config --libs dbus-1)
 
-SRC_DIR = src
-OBJ_DIR = obj
-
-SOURCES = $(wildcard $(SRC_DIR)/*.c)
-OBJECTS = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SOURCES))
+SOURCES = $(wildcard src/*.c) $(wildcard src/modules/*.c)
+OBJECTS = $(patsubst %.c,%.o,$(SOURCES))
 DEPENDS = $(OBJECTS:.o=.d)
 
 all: $(EXEC)
@@ -21,14 +18,11 @@ all: $(EXEC)
 $(EXEC): $(OBJECTS)
 	$(CC) $(LDFLAGS) $^ -o $@
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(OBJ_DIR):
-	mkdir -p $(OBJ_DIR)
-
 clean:
-	rm -rf $(OBJ_DIR) $(EXEC)
+	rm -f $(EXEC) $(OBJECTS) $(DEPENDS)
 
 .PHONY: all clean
 
