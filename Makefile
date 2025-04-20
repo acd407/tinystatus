@@ -1,7 +1,13 @@
 CC = gcc
 EXEC = tinystatus
-CFLAGS = -Wall -Wextra -MMD -MP -Isrc/include -O2 -std=gnu23
-LDFLAGS = -lm -s
+CFLAGS = -Wall -Wextra -MMD -MP -Isrc/include -std=gnu23
+LDFLAGS = -lm
+
+ifeq ($(DEBUG),1)
+    CFLAGS += -g -DDEBUG -Og
+else
+    CFLAGS += -O2
+endif
 
 CFLAGS += $(shell pkg-config --cflags libcjson)
 CFLAGS += $(shell pkg-config --cflags dbus-1)
