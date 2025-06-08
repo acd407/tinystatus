@@ -9,7 +9,7 @@
 #include <tools.h>
 #include <unistd.h>
 
-int64_t get_volume (snd_mixer_t *handle) {
+static int64_t get_volume (snd_mixer_t *handle) {
     snd_mixer_handle_events (handle); // 让 ALSA 处理事件，刷新 ALSA
 
     // 手动检查音量变化
@@ -22,7 +22,6 @@ int64_t get_volume (snd_mixer_t *handle) {
     snd_mixer_elem_t *elem = snd_mixer_find_selem (handle, sid);
     if (!elem) {
         fprintf (stderr, "Unable to find Master control\n");
-        snd_mixer_close (handle);
     } else if (snd_mixer_selem_is_active (elem)) {
         int unmuted = true; // 默认代表未静音
         if (snd_mixer_selem_has_playback_switch (elem)) {
@@ -49,39 +48,36 @@ int64_t get_volume (snd_mixer_t *handle) {
 }
 
 static void update (size_t module_id) {
-    int64_t volume = get_volume (modules[module_id].data.ptr);
+    snd_mixer_t *handle = ((void **) modules[module_id].data.ptr)[1];
+    int64_t volume = get_volume (handle);
     char output_str[] = "󰕾\u2004INF\0";
-    if (volume == -2) {
+    if (volume < 0) {
         snprintf (output_str, sizeof (output_str), "󰸈");
-        modules[module_id].interval = 1;
+        modules[module_id].del(module_id);
     } else {
-        modules[module_id].interval = 0;
-        if (volume == -1) {
-            snprintf (output_str, sizeof (output_str), "󰸈");
-        } else {
-            volume *= 5;
-            if (volume == 0) {
-                snprintf (output_str, sizeof (output_str), "󰕿");
-            } else if (volume < 34) {
-                snprintf (
-                    output_str, sizeof (output_str), "󰕿\u2004%*lu%%",
-                    volume < 10 ? 1 : 2, volume
-                );
-            } else if (volume < 67) {
-                snprintf (
-                    output_str, sizeof (output_str), "󰖀\u2004%2lu%%", volume
-                );
-            } else if (volume < 100) {
-                snprintf (
-                    output_str, sizeof (output_str), "󰕾\u2004%2lu%%", volume
-                );
-            } else if (volume < 200) {
-                snprintf (
-                    output_str, sizeof (output_str), "󰝝\u2004%3lu%%", volume
-                );
-            }
+        volume *= 5;
+        if (volume == 0) {
+            snprintf (output_str, sizeof (output_str), "󰕿");
+        } else if (volume < 34) {
+            snprintf (
+                output_str, sizeof (output_str), "󰕿\u2004%*lu%%",
+                volume < 10 ? 1 : 2, volume
+            );
+        } else if (volume < 67) {
+            snprintf (
+                output_str, sizeof (output_str), "󰖀\u2004%2lu%%", volume
+            );
+        } else if (volume < 100) {
+            snprintf (
+                output_str, sizeof (output_str), "󰕾\u2004%2lu%%", volume
+            );
+        } else if (volume < 200) {
+            snprintf (
+                output_str, sizeof (output_str), "󰝝\u2004%3lu%%", volume
+            );
         }
     }
+
     update_json (module_id, output_str, IDLE);
 }
 
@@ -103,15 +99,33 @@ static void alter (size_t module_id, uint64_t btn) {
     }
 }
 
+static void del (size_t module_id) {
+    int epoll_fd = ((uint64_t *) modules[module_id].data.ptr)[0];
+    snd_mixer_t *handle = ((void **) modules[module_id].data.ptr)[1];
+    struct pollfd pfd;
+    if (snd_mixer_poll_descriptors(handle, &pfd, 1) == 1) {
+        // 从epoll中移除文件描述符
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_DEL, pfd.fd, NULL) == -1) {
+            perror("epoll_ctl delete failed");
+        }
+    }
+    snd_mixer_close (handle);
+    void init_volume (int epoll_fd);
+    modules[module_id].update = (void *)init_volume;
+    modules[module_id].interval = 1;
+}
+
 void init_volume (int epoll_fd) {
     INIT_BASE;
+    modules[module_id].interval = 0;
     snd_mixer_t *handle;
     int err;
 
     // 打开默认混音器
     if ((err = snd_mixer_open (&handle, 0)) < 0) {
         fprintf (stderr, "无法打开混音器: %s\n", snd_strerror (err));
-        modules_cnt--;
+        if (modules_cnt == module_id + 1)
+            modules_cnt = module_id;
         return;
     }
 
@@ -121,7 +135,8 @@ void init_volume (int epoll_fd) {
         (err = snd_mixer_load (handle)) < 0) {
         fprintf (stderr, "混音器初始化失败: %s\n", snd_strerror (err));
         snd_mixer_close (handle);
-        modules_cnt--;
+        if (modules_cnt == module_id + 1)
+            modules_cnt = module_id;
         return;
     }
 
@@ -130,7 +145,8 @@ void init_volume (int epoll_fd) {
     if (snd_mixer_poll_descriptors (handle, &pfd, 1) != 1) {
         fprintf (stderr, "无法获取混音器文件描述符\n");
         snd_mixer_close (handle);
-        modules_cnt--;
+        if (modules_cnt == module_id + 1)
+            modules_cnt = module_id;
         return;
     }
 
@@ -141,15 +157,19 @@ void init_volume (int epoll_fd) {
     if (epoll_ctl (epoll_fd, EPOLL_CTL_ADD, pfd.fd, &ev) == -1) {
         perror ("epoll_ctl failed");
         snd_mixer_close (handle);
-        modules_cnt--;
+        if (modules_cnt == module_id + 1)
+            modules_cnt = module_id;
         return;
     }
 
     modules[module_id].update = update;
     modules[module_id].alter = alter;
     // 保存混音器句柄
-    modules[module_id].data.ptr = handle;
-    modules[module_id].interval = 1;
+    if (modules[module_id].data.ptr == 0)
+        modules[module_id].data.ptr = malloc (sizeof (void *) * 2);
+    ((uint64_t *) modules[module_id].data.ptr)[0] = epoll_fd;
+    ((void **) modules[module_id].data.ptr)[1] = handle;
+    modules[module_id].del = del;
 
     UPDATE_Q (module_id);
 }
