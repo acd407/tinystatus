@@ -23,7 +23,7 @@ static void set_nonblocking (int fd) {
 
 static void update (size_t module_id) {
     char input[BUF_SIZE];
-    ssize_t n = read (modules[module_id].fds[0], input, BUF_SIZE - 1);
+    ssize_t n = read (modules[module_id].data.num, input, BUF_SIZE - 1);
 
     if (n == -1) {
         if (errno != EAGAIN) {
@@ -84,9 +84,7 @@ void init_stdin (int epoll_fd) {
         exit (EXIT_FAILURE);
     }
 
-    modules[module_id].fds = malloc (sizeof (int) * 2);
-    modules[module_id].fds[0] = STDIN_FILENO;
-    modules[module_id].fds[1] = -1;
+    modules[module_id].data.num = STDIN_FILENO;
     modules[module_id].update = update;
 
     UPDATE_Q (module_id);

@@ -37,7 +37,7 @@ static const char *icons[] = {
 static void update (size_t module_id) {
     // 读取 inotify 事件
     char buffer[BUF_LEN];
-    ssize_t len = read (modules[module_id].fds[0], buffer, BUF_LEN);
+    ssize_t len = read (modules[module_id].data.num, buffer, BUF_LEN);
     if (len == -1 && errno != EAGAIN) {
         perror ("read");
         exit (EXIT_FAILURE);
@@ -100,9 +100,7 @@ void init_backlight (int epoll_fd) {
         return;
     }
 
-    modules[module_id].fds = malloc (sizeof (int) * 2);
-    modules[module_id].fds[0] = inotify_fd;
-    modules[module_id].fds[1] = -1;
+    modules[module_id].data.num = inotify_fd;
     modules[module_id].update = update;
     modules[module_id].alter = alter;
 

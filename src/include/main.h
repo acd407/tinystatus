@@ -6,7 +6,6 @@
 
 typedef struct {
     char *output;      // 输出
-    int *fds;          // 监听的fd,给派发器用,数组末尾为-1
     uint64_t interval; // 确定模块更新的时间间隔，0表示不随时间更新
     uint64_t state;    // input 专用
     void (*alter) (size_t, uint64_t); // input 专用

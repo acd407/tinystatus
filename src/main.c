@@ -79,11 +79,6 @@ int main () {
     }
 
     for (size_t i = 0; i < modules_cnt; i++) {
-        if (modules[i].fds) {
-            for (int j = 0; modules[i].fds[j] != -1; j++)
-                close (modules[i].fds[j]);
-            free (modules[i].fds);
-        }
         if (modules[i].del)
             modules[i].del (i);
     }

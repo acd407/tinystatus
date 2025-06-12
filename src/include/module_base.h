@@ -9,18 +9,14 @@
 #define CRITICAL "#F75341"
 
 #define INIT_BASE                                                              \
-    static size_t module_id = ~0UL;                                            \
-    if (module_id == ~0UL) {                                                   \
-        module_id = modules_cnt++;                                             \
-        modules[module_id].update = NULL;                                      \
-        modules[module_id].alter = NULL;                                       \
-        modules[module_id].output = NULL;                                      \
-        modules[module_id].del = NULL;                                         \
-        modules[module_id].fds = NULL;                                         \
-        modules[module_id].interval = 0;                                       \
-        modules[module_id].state = 0;                                          \
-        modules[module_id].data.ptr = NULL;                                    \
-    }                                                                          \
+    size_t module_id = modules_cnt++;                                          \
+    modules[module_id].update = NULL;                                          \
+    modules[module_id].alter = NULL;                                           \
+    modules[module_id].output = NULL;                                          \
+    modules[module_id].del = NULL;                                             \
+    modules[module_id].interval = 0;                                           \
+    modules[module_id].state = 0;                                              \
+    modules[module_id].data.ptr = NULL;                                        \
     assert (module_id < MOD_SIZE);
 
 // 刷新那些不随时间刷新的 modules

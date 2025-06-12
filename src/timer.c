@@ -29,10 +29,11 @@ static int create_timer () {
 }
 
 static void update (size_t module_id) {
-    uint64_t *counter = &modules[module_id].data.num;
+    int *counter = &((int *) modules[module_id].data.ptr)[1];
+    int timerfd = ((int *) modules[module_id].data.ptr)[0];
     uint64_t expirations;
     ssize_t s =
-        read (modules[module_id].fds[0], &expirations, sizeof (uint64_t));
+        read (timerfd, &expirations, sizeof (uint64_t));
     if (*counter > 0 && s == -1) {
         perror ("read timerfd");
         exit (EXIT_FAILURE);
@@ -58,11 +59,10 @@ void init_timer (int epoll_fd) {
         exit (EXIT_FAILURE);
     }
 
-    modules[module_id].fds = malloc (sizeof (int) * 2);
-    modules[module_id].fds[0] = timer_fd;
-    modules[module_id].fds[1] = -1;
+    modules[module_id].data.ptr = malloc (sizeof (int) * 2);
+    ((int *) modules[module_id].data.ptr)[0] = timer_fd;
+    ((int *) modules[module_id].data.ptr)[1] = 0;
     modules[module_id].update = update;
-    modules[module_id].data.num = 0;
 
     UPDATE_Q (module_id);
 }
