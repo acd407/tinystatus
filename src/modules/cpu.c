@@ -10,7 +10,7 @@
 #define CORE "/sys/class/powercap/intel-rapl:0:0/energy_uj"
 #define SVI2_P_Core "/sys/class/hwmon/hwmon3/power1_input"
 #define SVI2_P_SoC "/sys/class/hwmon/hwmon3/power2_input"
-// #define USE_RAPL
+#define USE_RAPL
 
 static double get_usage (size_t module_id) {
     uint64_t *prev_idle = &((uint64_t *) modules[module_id].data.ptr)[0];

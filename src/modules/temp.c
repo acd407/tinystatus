@@ -6,12 +6,12 @@
 #include <stdlib.h>
 #include <tools.h>
 
-#define Tdie "/sys/class/hwmon/hwmon3/temp1_input"
+#define Tctl "/sys/class/hwmon/hwmon5/temp1_input"
 
 static void update (size_t module_id) {
     char output_str[] = "ico\u200435.3";
 
-    double temp = read_uint64_file (Tdie) / 1e3;
+    double temp = read_uint64_file (Tctl) / 1e3;
 
     char *icons[] = {
         "\uf2cb", // 

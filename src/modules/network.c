@@ -158,7 +158,15 @@ static void format_wireless_output (
         0xf3, 0xb0, 0xa4, 0xa8  // 󰤨
     };
 
-    size_t idx = sizeof (icons) / 4 * link / 101;
+    size_t idx = 0;
+    idx += level > -100;
+    idx += level > -90;
+    idx += level > -80;
+    idx += level > -65;
+    idx += level > -55;
+    if (idx == 0 || idx >= sizeof (icons) / 4) {
+        idx = sizeof (icons) / 4 * link / 101;
+    }
 
     for (size_t i = 0; i < 4; i++) {
         *buffer++ = icons[idx * 4 + i];
