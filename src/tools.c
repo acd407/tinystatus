@@ -1,9 +1,11 @@
 #include <cJSON.h>
+#include <errno.h>
 #include <main.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <tools.h>
+#include <string.h>
 
 void format_storage_units (char *buf, double bytes) {
     const char *units = "KMGTPE"; // 单位从 K 开始
@@ -28,7 +30,8 @@ void format_storage_units (char *buf, double bytes) {
 uint64_t read_uint64_file (char *file) {
     FILE *file_soc = fopen (file, "r");
     if (!file_soc) {
-        perror ("fopen");
+        fprintf(stderr, "fopen: %s: %s", file, strerror(errno));
+        // perror ("fopen");
         exit (EXIT_FAILURE);
     }
     uint64_t ans = 0;
