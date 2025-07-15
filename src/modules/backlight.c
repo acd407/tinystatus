@@ -13,6 +13,7 @@
 #include <tools.h>
 #include <unistd.h>
 #define BRIGHTNESS "/sys/class/backlight/amdgpu_bl0/brightness"
+#define MAX_BRIGHTNESS "/sys/class/backlight/amdgpu_bl0/max_brightness"
 
 #define BUF_LEN (5 * (sizeof (struct inotify_event)))
 
@@ -44,7 +45,8 @@ static void update (size_t module_id) {
     }
 
     // 处理事件
-    uint64_t brightness = read_uint64_file (BRIGHTNESS) * 100 / 255;
+    uint64_t brightness =
+        read_uint64_file (BRIGHTNESS) * 100 / read_uint64_file (MAX_BRIGHTNESS);
     assert (brightness <= 100);
     brightness = (brightness + 1) / 5 * 5;
     size_t idx = sizeof (icons) / sizeof (char *) * brightness / 101;
