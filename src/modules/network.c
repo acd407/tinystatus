@@ -62,10 +62,14 @@ static void get_network_speed_and_master_dev (
     fgets (buffer, sizeof (buffer), fp);
     fgets (buffer, sizeof (buffer), fp);
 
-    bool found = false, found_ether = false;
+    bool found = false;
 
     while (fgets (buffer, sizeof (buffer), fp)) {
-        char *line = buffer;
+        char *line = buffer, *name_end = strchr (line, ':');
+
+        if (!name_end)
+            continue;
+
         while (*line == ' ')
             line++; // 跳过前导空格
 
@@ -74,26 +78,34 @@ static void get_network_speed_and_master_dev (
             continue;
         }
 
-        if (*line == 'e') {
-            found_ether = true;
-        }
-        if (!found_ether || *line == 'e') {
-            // 保存接口名称
+        // 检查一下网络接口是否 UP
+        const char carrier_fmt_1[] = "/sys/class/net/";
+        const char carrier_fmt_2[] = "/carrier";
+        char carrier
+            [sizeof (carrier_fmt_1) + sizeof (carrier_fmt_2) - 2 + IFNAMSIZ] = {
+                [0] = 0
+            };
+        assert (strcat (carrier, carrier_fmt_1));
+        assert (strncat (carrier, line, name_end - line));
+        assert (strcat (carrier, carrier_fmt_2));
+        if (!read_uint64_file (carrier))
+            continue;
+
+        // 保存接口名称
+        // 如果之前没找到过：!found，那就一定要初始化一下
+        // 如果已经初始化过，那么之保存以太网的名称
+        if (!found || *line == 'e') {
             size_t cnt = 0;
-            while (isalnum (*line) && cnt < IFNAMSIZ - 1) {
+            while (isalnum (*line)) {
                 master[cnt++] = *line++;
             }
             master[cnt] = '\0';
         }
 
-        line = strchr (line, ':');
-        if (!line)
-            continue;
-        line++;
-
         uint64_t prx, ptx;
-        if (sscanf (line, "%lu %*u %*u %*u %*u %*u %*u %*u %lu", &prx, &ptx) ==
-            2) {
+        if (sscanf (
+                name_end + 1, "%lu %*u %*u %*u %*u %*u %*u %*u %lu", &prx, &ptx
+            ) == 2) {
             *rx += prx;
             *tx += ptx;
             found = true;
