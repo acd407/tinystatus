@@ -91,11 +91,7 @@ static void alter (size_t module_id, uint64_t btn) {
 static void update (size_t module_id) {
     char output_str[] = "4bit\u20042.3%";
 
-    char *icons[] = {
-        "\xf3\xb0\xbe\x86", // 󰾆
-        "\xf3\xb0\xbe\x85", // 󰾅
-        "\xf3\xb0\x93\x85"  // 󰓅
-    };
+    char *icons[] = {"󰾆", "󰾅", "󰓅"};
     double usage = get_usage (module_id);
     size_t idx = ARRAY_SIZE (icons) * usage / 101;
     for (size_t i = 0; icons[idx][i]; i++)

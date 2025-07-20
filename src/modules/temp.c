@@ -14,11 +14,7 @@ static void update (size_t module_id) {
     double temp = read_uint64_file (Tctl) / 1e3;
 
     char *icons[] = {
-        "\uf2cb", // 
-        "\uf2ca", // 
-        "\uf2c9", // 
-        "\uf2c8", // 
-        "\uf2c7", // 
+        "", "", "", "", "",
     };
     size_t idx = temp / 101 * sizeof (icons) / sizeof (char *);
     for (size_t i = 0; icons[idx][i]; i++)

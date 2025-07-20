@@ -93,7 +93,7 @@ static void get_network_speed_and_master_dev (
 
         // 保存接口名称
         // 如果之前没找到过：!found，那就一定要初始化一下
-        // 如果已经初始化过，那么之保存以太网的名称
+        // 如果已经初始化过，那么保存以太网的名称
         if (!found || *line == 'e') {
             size_t cnt = 0;
             while (isalnum (*line)) {
@@ -133,19 +133,12 @@ static void format_ether_output (
     size_t module_id, char *buffer, size_t buffer_size, char *ifname,
     uint64_t rx, uint64_t tx
 ) {
-    char *icon = "\xf3\xb0\x88\x80"; // 󰈀
-    while (*icon) {
-        *buffer++ = *icon++;
-        buffer_size--;
-    }
-
     if (modules[module_id].state) {
-        char speed_path[21 + 16];
-        snprintf (
-            speed_path, sizeof (speed_path), "/sys/class/net/%s/speed", ifname
-        );
+        const char speed_path_template[] = "/sys/class/net/%s/speed";
+        char speed_path[sizeof (speed_path_template) - 2 - 1 + IFNAMSIZ];
+        snprintf (speed_path, sizeof (speed_path), speed_path_template, ifname);
         uint64_t speed = read_uint64_file (speed_path);
-        snprintf (buffer, buffer_size, "\u2004%ldM", speed);
+        snprintf (buffer, buffer_size, "󰈀\u2004%ldM", speed);
     } else {
         char rxs[6], txs[6];
         format_storage_units (&rxs, rx);
@@ -161,15 +154,7 @@ static void format_wireless_output (
     int64_t link = 0, level = 0;
     get_wireless_status (ifname, &link, &level);
 
-    char icons[] = {
-        0xf3, 0xb0, 0xa4, 0xae, // 󰤮
-        0xf3, 0xb0, 0xa4, 0xaf, // 󰤯
-        0xf3, 0xb0, 0xa4, 0x9f, // 󰤟
-        0xf3, 0xb0, 0xa4, 0xa2, // 󰤢
-        0xf3, 0xb0, 0xa4, 0xa5, // 󰤥
-        0xf3, 0xb0, 0xa4, 0xa8  // 󰤨
-    };
-
+    const char *icons[] = {"󰤮", "󰤯", "󰤟", "󰤢", "󰤥", "󰤨"};
     size_t idx = 0;
     idx += level > -100;
     idx += level > -90;
@@ -183,7 +168,10 @@ static void format_wireless_output (
     }
 
     if (modules[module_id].state) {
-        snprintf (buffer, buffer_size, "\u2004%ld%%\u2004%ldDB", link, level);
+        snprintf (
+            buffer, buffer_size, "%s\u2004%ld%%\u2004%ldDB", icons[idx], link,
+            level
+        );
     } else {
         char rxs[6], txs[6];
         format_storage_units (&rxs, rx);

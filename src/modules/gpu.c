@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <tools.h>
 
 #define GPU_USAGE "/sys/class/drm/card0/device/gpu_busy_percent"
@@ -22,7 +23,7 @@ static void alter (size_t module_id, uint64_t btn) {
 }
 
 static void update (size_t module_id) {
-    char output_str[] = "\xf3\xb0\x8d\xb9\u20041.31G"; // 󰍹
+    char output_str[] = "󰍹\u2004\0.00G";
 
     uint64_t usage = read_uint64_file (GPU_USAGE);
     if (modules[module_id].state) {

@@ -17,24 +17,6 @@
 
 #define BUF_LEN (5 * (sizeof (struct inotify_event)))
 
-static const char *icons[] = {
-    "\ue3d5", // 
-    "\ue3d4", // 
-    "\ue3d3", // 
-    "\ue3d2", // 
-    "\ue3d1", // 
-    "\ue3d0", // 
-    "\ue3cf", // 
-    "\ue3ce", // 
-    "\ue3cd", // 
-    "\ue3cc", // 
-    "\ue3cb", // 
-    "\ue3ca", // 
-    "\ue3c9", // 
-    "\ue3c8", // 
-    "\ue3e3", // 
-};
-
 static void update (size_t module_id) {
     // 读取 inotify 事件
     char buffer[BUF_LEN];
@@ -45,16 +27,21 @@ static void update (size_t module_id) {
     }
 
     // 处理事件
-    uint64_t brightness =
+    uint64_t brightness_percent =
         read_uint64_file (BRIGHTNESS) * 100 / read_uint64_file (MAX_BRIGHTNESS);
-    assert (brightness <= 100);
-    brightness = (brightness + 1) / 5 * 5;
+    assert (brightness_percent <= 100);
+    brightness_percent = (brightness_percent + 1) / 5 * 5;
+
+    const char *icons[] = {
+        "", "", "", "", "", "", "", "",
+        "", "", "", "", "", "", "",
+    };
     size_t idx = ARRAY_SIZE (icons) * brightness_percent / 101;
 
-    char output_str[] = "\ue3e0\u2004100%";
+    char output_str[] = "\u2004100%";
     snprintf (
         output_str, sizeof (output_str), "%s\u2004%*ld%%", icons[idx],
-        brightness == 100 ? 3 : 2, brightness
+        brightness_percent == 100 ? 3 : 2, brightness_percent
     );
 
     update_json (module_id, output_str, IDLE);

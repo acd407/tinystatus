@@ -15,30 +15,6 @@
 #define DEVICE_INTERFACE "org.freedesktop.UPower.Device"
 #define BATTERY "/org/freedesktop/UPower/devices/battery_BAT0"
 
-static const char *icons_charging[] = {
-    "\xf3\xb0\x82\x86", // 󰂆
-    "\xf3\xb0\x82\x87", // 󰂇
-    "\xf3\xb0\x82\x88", // 󰂈
-    "\xf3\xb0\x82\x89", // 󰂉
-    "\xf3\xb0\x82\x8a", // 󰂊
-    "\xf3\xb0\x82\x8b", // 󰂋
-    "\xf3\xb0\x82\x85"  // 󰂅
-};
-
-static const char *icons_discharging[] = {
-    "\xf3\xb0\x82\x8e", // 󰂎
-    "\xf3\xb0\x81\xba", // 󰁺
-    "\xf3\xb0\x81\xbb", // 󰁻
-    "\xf3\xb0\x81\xbc", // 󰁼
-    "\xf3\xb0\x81\xbd", // 󰁽
-    "\xf3\xb0\x81\xbe", // 󰁾
-    "\xf3\xb0\x81\xbf", // 󰁿
-    "\xf3\xb0\x82\x80", // 󰂀
-    "\xf3\xb0\x82\x81", // 󰂁
-    "\xf3\xb0\x82\x82", // 󰂂
-    "\xf3\xb0\x81\xb9", // 󰁹
-};
-
 static void dbus_get_property (
     DBusConnection *conn, const char *device_path, const char *property_name,
     int expected_type, void *value
@@ -141,6 +117,14 @@ static void update (size_t module_id) {
     char *colors[] = {CRITICAL, WARNING, IDLE};
     size_t colors_idx = percentage < 20 ? 0 : (percentage < 40 ? 1 : 2);
 
+    const char *icons_charging[] = {"󰂆", "󰂇", "󰂈", "󰂉",
+                                    "󰂊", "󰂋", "󰂅"};
+
+    const char *icons_discharging[] = {
+        "󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾",
+        "󰁿", "󰂀", "󰂁", "󰂂", "󰁹",
+    };
+
     // 输出图标
     switch (state) {
     case CHARGING:
@@ -165,7 +149,7 @@ static void update (size_t module_id) {
     default: // 同步中
         output_p += snprintf (
             output_p, sizeof (output_str) - (output_p - output_str),
-            "<span color='" DEACTIVE "'>\xf3\xb1\xa0\xb5</span>" // 󱠵
+            "<span color='" DEACTIVE "'>󱠵</span>"
         );
         goto generate_json;
     }
