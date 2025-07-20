@@ -26,7 +26,10 @@ static void update (size_t module_id) {
 
     uint64_t usage = read_uint64_file (GPU_USAGE);
     if (modules[module_id].state) {
-        format_storage_units (output_str + 7, read_uint64_file (VRAM_USED));
+        format_storage_units (
+            (char (*)[6]) (output_str + strlen (output_str)),
+            read_uint64_file (VRAM_USED)
+        );
     } else {
         snprintf (
             output_str + 4, sizeof (output_str) - 4, "\u2004%*ld%%",

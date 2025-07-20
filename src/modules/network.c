@@ -79,16 +79,16 @@ static void get_network_speed_and_master_dev (
         }
 
         // 检查一下网络接口是否 UP
-        const char carrier_fmt_1[] = "/sys/class/net/";
-        const char carrier_fmt_2[] = "/carrier";
-        char carrier
-            [sizeof (carrier_fmt_1) + sizeof (carrier_fmt_2) - 2 + IFNAMSIZ] = {
-                [0] = 0
-            };
-        assert (strcat (carrier, carrier_fmt_1));
-        assert (strncat (carrier, line, name_end - line));
-        assert (strcat (carrier, carrier_fmt_2));
-        if (!read_uint64_file (carrier))
+        // name 由冒号分隔，无法直接提取，故使用 strcat 拼接 而不是 snprintf
+        const char carrier_path_template_1[] = "/sys/class/net/";
+        const char carrier_path_template_2[] = "/carrier";
+        char carrier_path
+            [sizeof (carrier_path_template_1) +
+             sizeof (carrier_path_template_2) - 2 + IFNAMSIZ] = {[0] = 0};
+        assert (strcat (carrier_path, carrier_path_template_1));
+        assert (strncat (carrier_path, line, name_end - line));
+        assert (strcat (carrier_path, carrier_path_template_2));
+        if (!read_uint64_file (carrier_path))
             continue;
 
         // 保存接口名称
@@ -147,10 +147,10 @@ static void format_ether_output (
         uint64_t speed = read_uint64_file (speed_path);
         snprintf (buffer, buffer_size, "\u2004%ldM", speed);
     } else {
-        char rxs[5 + 1], txs[5 + 1];
-        format_storage_units (rxs, rx);
-        format_storage_units (txs, tx);
-        snprintf (buffer, buffer_size, "\u2004%s\u2004%s", rxs, txs);
+        char rxs[6], txs[6];
+        format_storage_units (&rxs, rx);
+        format_storage_units (&txs, tx);
+        snprintf (buffer, buffer_size, "󰈀\u2004%s\u2004%s", rxs, txs);
     }
 }
 
@@ -188,10 +188,12 @@ static void format_wireless_output (
     if (modules[module_id].state) {
         snprintf (buffer, buffer_size, "\u2004%ld%%\u2004%ldDB", link, level);
     } else {
-        char rxs[5 + 1], txs[5 + 1];
-        format_storage_units (rxs, rx);
-        format_storage_units (txs, tx);
-        snprintf (buffer, buffer_size, "\u2004%s\u2004%s", rxs, txs);
+        char rxs[6], txs[6];
+        format_storage_units (&rxs, rx);
+        format_storage_units (&txs, tx);
+        snprintf (
+            buffer, buffer_size, "%s\u2004%s\u2004%s", icons[idx], rxs, txs
+        );
     }
 }
 

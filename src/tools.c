@@ -7,7 +7,7 @@
 #include <tools.h>
 #include <string.h>
 
-void format_storage_units (char *buf, double bytes) {
+void format_storage_units (char (*buf)[6], double bytes) {
     const char *units = "KMGTPE"; // 单位从 K 开始
     int unit_idx = -1;            // 0=K, 1=M, 2=G, 3=T, 4=P, 5=E
 
@@ -19,18 +19,18 @@ void format_storage_units (char *buf, double bytes) {
 
     // 动态选择格式
     if (bytes >= 100.0) {
-        snprintf (buf, 6, " %3.0f%c", round (bytes), units[unit_idx]);
+        snprintf (*buf, 6, " %3.0f%c", round (bytes), units[unit_idx]);
     } else if (bytes >= 10.0) {
-        snprintf (buf, 6, "%4.1f%c", bytes, units[unit_idx]);
+        snprintf (*buf, 6, "%4.1f%c", bytes, units[unit_idx]);
     } else {
-        snprintf (buf, 6, "%4.2f%c", bytes, units[unit_idx]);
+        snprintf (*buf, 6, "%4.2f%c", bytes, units[unit_idx]);
     }
 }
 
 uint64_t read_uint64_file (char *file) {
     FILE *file_soc = fopen (file, "r");
     if (!file_soc) {
-        fprintf(stderr, "fopen: %s: %s", file, strerror(errno));
+        fprintf (stderr, "fopen: %s: %s", file, strerror (errno));
         // perror ("fopen");
         exit (EXIT_FAILURE);
     }

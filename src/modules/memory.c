@@ -42,7 +42,9 @@ static void update (size_t module_id) {
     uint64_t used;
     double usage;
     get_usage (&used, &usage);
-    format_storage_units (output_str + 7, used);
+    format_storage_units (
+        (char (*)[6]) (output_str + strlen (output_str)), used
+    );
 
     char *colors[] = {IDLE, WARNING, CRITICAL};
     size_t idx;
