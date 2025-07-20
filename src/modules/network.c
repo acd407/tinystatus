@@ -176,13 +176,10 @@ static void format_wireless_output (
     idx += level > -80;
     idx += level > -65;
     idx += level > -55;
-    if (idx == 0 || idx >= sizeof (icons) / 4) {
-        idx = sizeof (icons) / 4 * link / 101;
-    }
 
-    for (size_t i = 0; i < 4; i++) {
-        *buffer++ = icons[idx * 4 + i];
-        buffer_size--;
+    // 采用 level 方法判断出问题的时候，就用 link 方法
+    if (idx == 0 || idx >= ARRAY_SIZE (icons)) {
+        idx = ARRAY_SIZE (icons) * link / 101;
     }
 
     if (modules[module_id].state) {

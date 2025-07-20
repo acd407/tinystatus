@@ -97,7 +97,7 @@ static void update (size_t module_id) {
         "\xf3\xb0\x93\x85"  // 󰓅
     };
     double usage = get_usage (module_id);
-    size_t idx = usage / 101 * sizeof (icons) / sizeof (char *);
+    size_t idx = ARRAY_SIZE (icons) * usage / 101;
     for (size_t i = 0; icons[idx][i]; i++)
         output_str[i] = icons[idx][i];
 

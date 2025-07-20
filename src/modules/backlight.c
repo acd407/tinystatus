@@ -49,7 +49,7 @@ static void update (size_t module_id) {
         read_uint64_file (BRIGHTNESS) * 100 / read_uint64_file (MAX_BRIGHTNESS);
     assert (brightness <= 100);
     brightness = (brightness + 1) / 5 * 5;
-    size_t idx = sizeof (icons) / sizeof (char *) * brightness / 101;
+    size_t idx = ARRAY_SIZE (icons) * brightness_percent / 101;
 
     char output_str[] = "\ue3e0\u2004100%";
     snprintf (

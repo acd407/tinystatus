@@ -145,8 +145,7 @@ static void update (size_t module_id) {
     switch (state) {
     case CHARGING:
     case FULLY_CHARGED: {
-        size_t idx =
-            sizeof (icons_charging) / sizeof (char *) * percentage / 101;
+        size_t idx = ARRAY_SIZE (icons_charging) * percentage / 101;
         output_p += snprintf (
             output_p, sizeof (output_str) - (output_p - output_str),
             "<span color='" GOOD "'>%s</span>", icons_charging[idx]
@@ -155,8 +154,7 @@ static void update (size_t module_id) {
     }
     case DISCHARGING:
     case EMPTY: {
-        size_t idx =
-            sizeof (icons_discharging) / sizeof (char *) * percentage / 101;
+        size_t idx = ARRAY_SIZE (icons_discharging) * percentage / 101;
         output_p += snprintf (
             output_p, sizeof (output_str) - (output_p - output_str),
             "<span color='%s'>%s</span>", colors[colors_idx],
