@@ -37,7 +37,7 @@ uint64_t read_uint64_file (char *file) {
     uint64_t ans = 0;
     if (EOF == fscanf (file_soc, "%lu", &ans)) {
         perror ("fscanf");
-        exit (EXIT_FAILURE);
+        // exit (EXIT_FAILURE);
     }
     fclose (file_soc);
     return ans;

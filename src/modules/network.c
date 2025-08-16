@@ -115,7 +115,7 @@ static void get_network_speed_and_master_dev (
 
     if (!found) {
         perror ("can't find any wlan or ether");
-        exit (EXIT_FAILURE);
+        // exit (EXIT_FAILURE);
     }
 
     if (!*prev_rx)
