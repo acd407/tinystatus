@@ -40,6 +40,7 @@ static void get_wireless_status (char *ifname, int64_t *link, int64_t *level) {
             break;
     }
 
+    *link = *link * 10 / 7; // rtw88 驱动程序链路质量最大值是 70，不是 100
     fclose (fp);
 }
 
