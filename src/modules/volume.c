@@ -47,13 +47,27 @@ static int64_t get_volume (snd_mixer_t *handle) {
     return -2;
 }
 
+struct storage {
+    snd_mixer_t *handle;
+    int epoll_fd;
+    int pfd_fd;
+};
+
 static void update (size_t module_id) {
-    snd_mixer_t *handle = modules[module_id].data.ptr;
+    modules[module_id].interval = 0;
+    snd_mixer_t *handle =
+        ((struct storage *) modules[module_id].data.ptr)->handle;
     int64_t volume = get_volume (handle);
     char output_str[] = "󰕾\u2004INF\0";
-    if (volume == -2)
-        snprintf (output_str, sizeof (output_str), "󰖁");
-    else if (volume == -1) {
+    if (volume == -2) {
+        snprintf (output_str, sizeof (output_str), "󰝟");
+        int epoll_fd =
+            ((struct storage *) modules[module_id].data.ptr)->epoll_fd;
+        modules[module_id].del (module_id);
+        void reload_volume (int epoll_fd, size_t module_id);
+        reload_volume (epoll_fd, module_id);
+        modules[module_id].interval = 1; // 随时间刷新一次
+    } else if (volume == -1) {
         snprintf (output_str, sizeof (output_str), "󰸈");
     } else {
         volume *= 5;
@@ -100,15 +114,22 @@ static void alter (size_t module_id, uint64_t btn) {
     }
 }
 
-void init_volume (int epoll_fd) {
-    INIT_BASE;
+void del (size_t module_id) {
+    struct storage *storage = modules[module_id].data.ptr;
+    epoll_ctl (storage->epoll_fd, EPOLL_CTL_DEL, storage->pfd_fd, NULL);
+    if (storage->handle)
+        snd_mixer_close (storage->handle);
+    free (storage);
+}
+
+void reload_volume (int epoll_fd, size_t module_id) {
     snd_mixer_t *handle = NULL;
     int err;
 
     // 打开默认混音器
     if ((err = snd_mixer_open (&handle, 0)) < 0) {
         fprintf (stderr, "无法打开混音器: %s\n", snd_strerror (err));
-        goto err;
+        exit (EXIT_FAILURE);
     }
 
     // 加载混音器
@@ -116,14 +137,14 @@ void init_volume (int epoll_fd) {
         (err = snd_mixer_selem_register (handle, NULL, NULL)) < 0 ||
         (err = snd_mixer_load (handle)) < 0) {
         fprintf (stderr, "混音器初始化失败: %s\n", snd_strerror (err));
-        goto err;
+        exit (EXIT_FAILURE);
     }
 
     // 获取 ALSA 混音器的文件描述符
     struct pollfd pfd;
     if (snd_mixer_poll_descriptors (handle, &pfd, 1) != 1) {
         fprintf (stderr, "无法获取混音器文件描述符\n");
-        goto err;
+        exit (EXIT_FAILURE);
     }
 
     // 将文件描述符添加到 epoll
@@ -132,20 +153,21 @@ void init_volume (int epoll_fd) {
     ev.data.u64 = module_id;
     if (epoll_ctl (epoll_fd, EPOLL_CTL_ADD, pfd.fd, &ev) == -1) {
         perror ("epoll_ctl failed");
-        goto err;
+        exit (EXIT_FAILURE);
     }
 
     modules[module_id].update = update;
     modules[module_id].alter = alter;
-    // 保存混音器句柄
-    modules[module_id].data.ptr = handle;
+    modules[module_id].data.ptr = malloc (sizeof (struct storage));
+    ((struct storage *) modules[module_id].data.ptr)->handle =
+        handle; // 保存混音器句柄
+    ((struct storage *) modules[module_id].data.ptr)->epoll_fd = epoll_fd;
+    ((struct storage *) modules[module_id].data.ptr)->pfd_fd = pfd.fd;
+    modules[module_id].del = del;
+}
 
+void init_volume (int epoll_fd) {
+    INIT_BASE;
+    reload_volume (epoll_fd, module_id);
     UPDATE_Q (module_id);
-
-    return;
-
-err:
-    if (handle)
-        snd_mixer_close (handle);
-    modules_cnt--;
 }
