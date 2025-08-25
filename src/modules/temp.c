@@ -14,13 +14,12 @@ static void update (size_t module_id) {
     double temp = read_uint64_file (Tctl) / 1e3;
 
     char *icons[] = {
-        "", "", "", "", "",
+        "", "", "", "", "",
     };
-    size_t idx = temp / 101 * sizeof (icons) / sizeof (char *);
-    for (size_t i = 0; icons[idx][i]; i++)
-        output_str[i] = icons[idx][i];
+    size_t idx = (temp - 40) * ARRAY_SIZE (icons) / 61;
+    idx = idx > 0 ? idx : 0;
     snprintf (
-        output_str + 3, sizeof (output_str) - 3, "\u2004%3.*f",
+        output_str, sizeof (output_str), "%s\u2004%3.*f", icons[idx],
         temp < 10 ? 2 : 1, temp
     );
 

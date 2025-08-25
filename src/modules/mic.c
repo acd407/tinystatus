@@ -15,36 +15,36 @@ static int64_t get_volume (snd_mixer_t *handle) {
     // 手动检查音量变化
     snd_mixer_selem_id_t *sid;
 
-    // 设置混音器元素ID - 查找Master通道
+    // 设置混音器元素ID - 查找Capture通道
     snd_mixer_selem_id_alloca (&sid);
     snd_mixer_selem_id_set_index (sid, 0);
-    snd_mixer_selem_id_set_name (sid, "Master");
+    snd_mixer_selem_id_set_name (sid, "Capture");
     snd_mixer_elem_t *elem = snd_mixer_find_selem (handle, sid);
     if (!elem) {
-        fprintf (stderr, "Unable to find Master control\n");
-    } else if (snd_mixer_selem_is_active (elem)) {
-        int unmuted = true; // 默认代表未静音
-        if (snd_mixer_selem_has_playback_switch (elem)) {
-            snd_mixer_selem_get_playback_switch (
+        fprintf (stderr, "未找到输入设备控制\n");
+        return -2;
+    }
+
+    if (snd_mixer_selem_is_active (elem)) {
+        int unmuted = 1;
+        if (snd_mixer_selem_has_capture_switch (elem)) {
+            snd_mixer_selem_get_capture_switch (
                 elem, SND_MIXER_SCHN_FRONT_LEFT, &unmuted
             );
         }
+
         if (unmuted) {
-            int64_t min, max;
-            // 获取音量范围
-            snd_mixer_selem_get_playback_volume_range (elem, &min, &max);
-            // 这获取到的并不是最终需要的 0 - 100 的数值
-            int64_t volume;
-            snd_mixer_selem_get_playback_volume (
+            int64_t min, max, volume;
+            snd_mixer_selem_get_capture_volume_range (elem, &min, &max);
+            snd_mixer_selem_get_capture_volume (
                 elem, SND_MIXER_SCHN_FRONT_LEFT, &volume
             );
-            volume = (volume - min) * (uint64_t) 100 / (max - min);
+            volume = (volume - min) * 100 / (max - min);
             return (volume + 1) / 5;
-        } else {
-            return -1;
         }
+        return -1; // 静音
     }
-    return -2;
+    return -2; // 设备未激活
 }
 
 struct storage {
@@ -53,43 +53,43 @@ struct storage {
     int pfd_fd;
 };
 
-static void reload_volume (int epoll_fd, size_t module_id);
+static void reload_microphone (int epoll_fd, size_t module_id);
 
 static void update (size_t module_id) {
     modules[module_id].interval = 0;
     snd_mixer_t *handle =
         ((struct storage *) modules[module_id].data.ptr)->handle;
     int64_t volume = get_volume (handle);
-    char output_str[] = "󰕾\u2004INF\0";
+    char output_str[] = "󰍭\u2004INF\0";
     if (volume == -2) {
-        snprintf (output_str, sizeof (output_str), "󰝟");
+        snprintf (output_str, sizeof (output_str), "󰍱");
         int epoll_fd =
             ((struct storage *) modules[module_id].data.ptr)->epoll_fd;
         modules[module_id].del (module_id);
-        reload_volume (epoll_fd, module_id);
+        reload_microphone (epoll_fd, module_id);
         modules[module_id].interval = 1; // 随时间刷新一次
     } else if (volume == -1) {
-        snprintf (output_str, sizeof (output_str), "󰸈");
+        snprintf (output_str, sizeof (output_str), "󰍭");
     } else {
         volume *= 5;
         if (volume == 0) {
-            snprintf (output_str, sizeof (output_str), "󰕿");
-        } else if (volume < 34) {
+            snprintf (output_str, sizeof (output_str), "󰍮");
+        } else if (volume < 33) {
             snprintf (
-                output_str, sizeof (output_str), "󰕿\u2004%*lu%%",
+                output_str, sizeof (output_str), "󰍮\u2004%*lu%%",
                 volume < 10 ? 1 : 2, volume
             );
         } else if (volume < 67) {
             snprintf (
-                output_str, sizeof (output_str), "󰖀\u2004%2lu%%", volume
+                output_str, sizeof (output_str), "󰢳\u2004%2lu%%", volume
             );
         } else if (volume < 100) {
             snprintf (
-                output_str, sizeof (output_str), "󰕾\u2004%2lu%%", volume
+                output_str, sizeof (output_str), "󰍬\u2004%2lu%%", volume
             );
         } else if (volume < 200) {
             snprintf (
-                output_str, sizeof (output_str), "󰝝\u2004%3lu%%", volume
+                output_str, sizeof (output_str), "󰢴\u2004%3lu%%", volume
             );
         }
     }
@@ -101,16 +101,16 @@ static void alter (size_t module_id, uint64_t btn) {
     (void) module_id;
     switch (btn) {
     case 2: // middle button
-        system ("pavucontrol -t 3 &");
+        system ("pavucontrol -t 4 &");
         break;
     case 3: // right button
-        system ("~/.bin/wm/volume t &");
+        system ("~/.bin/wm/volume m t &");
         break;
     case 4: // up
-        system ("~/.bin/wm/volume i &");
+        system ("~/.bin/wm/volume m i &");
         break;
     case 5: // down
-        system ("~/.bin/wm/volume d &");
+        system ("~/.bin/wm/volume m d &");
         break;
     }
 }
@@ -123,7 +123,7 @@ static void del (size_t module_id) {
     free (storage);
 }
 
-static void reload_volume (int epoll_fd, size_t module_id) {
+static void reload_microphone (int epoll_fd, size_t module_id) {
     snd_mixer_t *handle = NULL;
     int err;
 
@@ -167,8 +167,8 @@ static void reload_volume (int epoll_fd, size_t module_id) {
     modules[module_id].del = del;
 }
 
-void init_volume (int epoll_fd) {
+void init_microphone (int epoll_fd) {
     INIT_BASE;
-    reload_volume (epoll_fd, module_id);
+    reload_microphone (epoll_fd, module_id);
     UPDATE_Q (module_id);
 }
