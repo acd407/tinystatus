@@ -12,8 +12,8 @@
 #include <sys/timerfd.h>
 #include <tools.h>
 #include <unistd.h>
-#define BRIGHTNESS "/sys/class/backlight/amdgpu_bl0/brightness"
-#define MAX_BRIGHTNESS "/sys/class/backlight/amdgpu_bl0/max_brightness"
+#define BRIGHTNESS "/sys/class/backlight/amdgpu_bl1/brightness"
+#define MAX_BRIGHTNESS "/sys/class/backlight/amdgpu_bl1/max_brightness"
 
 #define BUF_LEN (5 * (sizeof (struct inotify_event)))
 

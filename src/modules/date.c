@@ -13,7 +13,8 @@ static void update (size_t module_id) {
     struct tm *time_info = localtime (&raw_time); // 转换为本地时间
     char output_str[80];
     strftime (
-        output_str, sizeof (output_str), "%a\u2004%d\u2004%H:%M:%S", time_info
+        output_str, sizeof (output_str), "%a\u2004%m/%d\u2004%H:%M:%S",
+        time_info
     );
 
     update_json (module_id, output_str, IDLE);
@@ -23,7 +24,7 @@ static void alter (size_t module_id, uint64_t btn) {
     (void) module_id;
     switch (btn) {
     case 2: // middle btn
-        system ("ksystemlog &");
+        system ("qjournalctl &");
         break;
     }
 }

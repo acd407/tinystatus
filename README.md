@@ -4,16 +4,14 @@
 
 <center><img src="res/img/effect.png" style="zoom:50%;" /></center>
 
-为了尽可能的小，`tinystatus` 并不支持配置文件。
-
 ## 注意
 
 **这应仅仅作为一个示例项目**，用户应该在获取代码后修改各个模块中的宏，
 以适应自己的设备（像 `dwm` 一样）。
 
-**换句话说，假如代码一字不改，那么编译可能没问题，但运行是必然会出错的。**
+**由于很多模块直接硬编码 sysfs 路径，而每个人的外设不同，驱动程序也不同，所以假如不改动代码，那么编译可能没问题，但运行是必然会出错的。**
 
-**项目的代码并不多，十分建议在 ai 的辅助下阅读代码。**
+**Tips: 项目的代码并不多，十分建议在 ai 的辅助下阅读代码。**
 
 可以通过如下命令可以将项目转化为一个单文件，喂给 ai
 
@@ -52,6 +50,7 @@ find src -type f -exec sh -c 'echo // file: {} && cat {}' \; >out.c
 | `battery.c`   | 电量、百分比、预期放电/充满时间、功耗 |
 | `backlight.c` | 显示、调节 LCD 背光亮度               |
 | `volume.c`    | 显示、调节音量大小                    |
+| `volume.c`    | 显示、调节麦克风音量大小              |
 | `network.c`   | 显示网速和有线/无线网络的链路信息     |
 | `gpu.c`       | 显示 GPU 的使用率和显存占用           |
 | `cpu.c`       | 处理器使用率和功耗                    |
@@ -85,14 +84,13 @@ init_xxx (epoll_fd);
 
 ```c
 typedef struct {
-    char *output;      // 模块的输出
-    int *fds;          // 监听的 fd，程序退出时会释放这些 fd
-    uint64_t interval; // 确定模块更新的时间间隔，0 表示不随时间更新
-    uint64_t state;    // 模块的状态，配合 alter 方法，实现响应鼠标事件
-    void (*alter) (size_t, uint64_t); // 改变模块状态
-    void (*update) (size_t);          // 子模块的 update 方法
-    void (*del) (size_t);             // 析构函数，清理模块内部数据
-    union {                           // 模块内部数据，用于存储一些“静态变量”
+    char *output;      // 模块输出，各模块输出由全局的output函数统一收集输出
+    uint64_t interval; // 确定模块更新的时间间隔，0表示不随时间更新
+    uint64_t state;    // 模块的状态，用于可以改变状态的模块，如支持右键单击
+    void (*alter) (size_t, uint64_t); // 改变模块状态时的回调函数
+    void (*update) (size_t);          // 更新模块状态时的回调函数
+    void (*del) (size_t);             // 析构函数
+    union {                           // 模块内部数据，由模块自己决定如何实现
         void *ptr;
         uint64_t num;
     } data;

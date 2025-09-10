@@ -7,8 +7,8 @@
 #include <string.h>
 #include <tools.h>
 
-#define GPU_USAGE "/sys/class/drm/card0/device/gpu_busy_percent"
-#define VRAM_USED "/sys/class/drm/card0/device/mem_info_vram_used"
+#define GPU_USAGE "/sys/class/drm/card1/device/gpu_busy_percent"
+#define VRAM_USED "/sys/class/drm/card1/device/mem_info_vram_used"
 
 static void alter (size_t module_id, uint64_t btn) {
     switch (btn) {
