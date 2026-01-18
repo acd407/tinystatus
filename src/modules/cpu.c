@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tools.h>
+#include <limits.h>
 
 #define PACKAGE "/sys/class/powercap/intel-rapl:0/energy_uj"
 #define CORE "/sys/class/powercap/intel-rapl:0:0/energy_uj"
@@ -31,10 +32,7 @@ static double get_usage(size_t module_id) {
     }
     fclose(fp);
 
-    if (sscanf(
-            buffer, "cpu %lu %lu %lu %lu %lu %lu %lu", &idx, &nice, &system,
-            &idle, &iowait, &irq, &softirq
-        ) != 7) {
+    if (sscanf(buffer, "cpu %lu %lu %lu %lu %lu %lu %lu", &idx, &nice, &system, &idle, &iowait, &irq, &softirq) != 7) {
         exit(EXIT_FAILURE);
     }
 
@@ -59,8 +57,9 @@ static double get_usage(size_t module_id) {
 #ifdef USE_RAPL
 static double get_power(size_t module_id) {
     uint64_t *previous_energy = &((uint64_t *)modules[module_id].data.ptr)[2];
+    char *package_path = ((char **)modules[module_id].data.ptr)[3]; // 路径存储在第4个位置
 
-    uint64_t energy = read_uint64_file(PACKAGE);
+    uint64_t energy = read_uint64_file(package_path);
 
     if (!*previous_energy)
         *previous_energy = energy;
@@ -112,21 +111,21 @@ static void update(size_t module_id) {
 
     if (is_active) {
         double power = get_power(module_id);
-        snprintf(
-            output_str + icon_len, sizeof(output_str) - icon_len, format_active,
-            power < 10 ? 2 : 1, power
-        );
+        snprintf(output_str + icon_len, sizeof(output_str) - icon_len, format_active, power < 10 ? 2 : 1, power);
     } else {
-        snprintf(
-            output_str + icon_len, sizeof(output_str) - icon_len,
-            format_inactive, usage < 10 ? 2 : 1, usage
-        );
+        snprintf(output_str + icon_len, sizeof(output_str) - icon_len, format_inactive, usage < 10 ? 2 : 1, usage);
     }
 
     update_json(module_id, output_str, color);
 }
 
 static void del(size_t module_id) {
+    // 释放路径内存
+    char **package_path = (char **)modules[module_id].data.ptr;
+    if (package_path[3]) {
+        free(package_path[3]);
+    }
+    // 释放整个数据结构
     free(modules[module_id].data.ptr);
 }
 
@@ -137,10 +136,28 @@ void init_cpu(int epoll_fd) {
     modules[module_id].alter = alter;
     modules[module_id].update = update;
     modules[module_id].interval = 1;
-    modules[module_id].data.ptr = malloc(sizeof(uint64_t) * 3);
+
+    // 分配内存结构：3个uint64_t + 1个char*指针
+    modules[module_id].data.ptr = malloc(sizeof(uint64_t) * 3 + sizeof(char *));
     ((uint64_t *)modules[module_id].data.ptr)[0] = 0;
     ((uint64_t *)modules[module_id].data.ptr)[1] = 0;
     ((uint64_t *)modules[module_id].data.ptr)[2] = 0;
+    ((char **)modules[module_id].data.ptr)[3] = NULL; // 初始化指针为NULL
+
+    // 查找RAPL路径
+    char **package_path_ptr = &((char **)modules[module_id].data.ptr)[3];
+
+    // 首先找到匹配的name文件
+    char *name_path = match_content_path("/sys/class/powercap/intel-rapl*/name", "package-0");
+    if (name_path) {
+        *package_path_ptr = regex(name_path, "name", "energy_uj");
+        free(name_path);
+        fprintf(stderr, "Found RAPL package path: %s\n", *package_path_ptr);
+    } else {
+        fprintf(stderr, "Failed to find RAPL package path, using default\n");
+        *package_path_ptr = strdup(PACKAGE);
+    }
+
     modules[module_id].del = del;
 
     UPDATE_Q(module_id);

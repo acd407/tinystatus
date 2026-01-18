@@ -4,7 +4,8 @@ CFLAGS = -Wall -Wextra -MMD -MP -Isrc/include -std=gnu23
 LDFLAGS = -lm
 
 ifeq ($(DEBUG),1)
-CFLAGS += -g -DDEBUG -Og
+CFLAGS += -g -DDEBUG -Og -fsanitize=address -fno-omit-frame-pointer
+LDFLAGS += -fsanitize=address -fno-omit-frame-pointer
 else
 CFLAGS += -O2
 LDFLAGS += -s
