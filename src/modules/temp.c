@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <tools.h>
 
-#define Tctl "/sys/class/hwmon/hwmon5/temp1_input"
+#define Tctl "/sys/class/hwmon/hwmon6/temp1_input"
 
 static void update (size_t module_id) {
     char output_str[] = "ico\u200435.3";

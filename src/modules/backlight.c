@@ -12,8 +12,8 @@
 #include <sys/timerfd.h>
 #include <tools.h>
 #include <unistd.h>
-#define BRIGHTNESS "/sys/class/backlight/amdgpu_bl1/brightness"
-#define MAX_BRIGHTNESS "/sys/class/backlight/amdgpu_bl1/max_brightness"
+#define BRIGHTNESS "/sys/class/backlight/intel_backlight/brightness"
+#define MAX_BRIGHTNESS "/sys/class/backlight/intel_backlight/max_brightness"
 
 #define BUF_LEN (5 * (sizeof (struct inotify_event)))
 
@@ -51,10 +51,10 @@ static void alter (size_t module_id, uint64_t btn) {
     (void) module_id;
     switch (btn) {
     case 4: // up
-        system ("~/.bin/wm/backlight i >/dev/null &");
+        system ("brightnessctl --class=backlight set +10% >/dev/null &");
         break;
     case 5: // down
-        system ("~/.bin/wm/backlight d >/dev/null &");
+        system ("brightnessctl --class=backlight set 10%- >/dev/null &");
         break;
     }
 }

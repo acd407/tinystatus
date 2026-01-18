@@ -43,7 +43,7 @@ uint64_t read_uint64_file (char *file) {
     return ans;
 }
 
-void update_json (size_t module_id, char *output_str, char *color) {
+void update_json (size_t module_id, const char *output_str, const char *color) {
     cJSON *json = cJSON_CreateObject ();
 
     char name[] = "A";
