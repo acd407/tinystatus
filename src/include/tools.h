@@ -1,5 +1,9 @@
 #include <stddef.h>
 #include <stdint.h>
+
+#define max(x, y) ((x) > (y) ? (x) : (y))
+#define min(x, y) ((x) > (y) ? (y) : (x))
+
 void format_storage_units(char (*buf)[6], double bytes);
 uint64_t read_uint64_file(char *file);
 void update_json(size_t module_id, const char *output_str, const char *color);

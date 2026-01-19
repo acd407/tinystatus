@@ -7,11 +7,11 @@
 #include <tools.h>
 #include <unistd.h>
 
-static int create_timer () {
-    int timer_fd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK);
+static int create_timer() {
+    int timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (timer_fd == -1) {
-        perror ("timerfd_create");
-        exit (EXIT_FAILURE);
+        perror("timerfd_create");
+        exit(EXIT_FAILURE);
     }
 
     struct itimerspec new_value;
@@ -20,49 +20,48 @@ static int create_timer () {
     new_value.it_interval.tv_sec = 1;
     new_value.it_interval.tv_nsec = 0;
 
-    if (timerfd_settime (timer_fd, 0, &new_value, NULL) == -1) {
-        perror ("timerfd_settime");
-        exit (EXIT_FAILURE);
+    if (timerfd_settime(timer_fd, 0, &new_value, NULL) == -1) {
+        perror("timerfd_settime");
+        exit(EXIT_FAILURE);
     }
 
     return timer_fd;
 }
 
-static void update (size_t module_id) {
-    int *counter = &((int *) modules[module_id].data.ptr)[1];
-    int timerfd = ((int *) modules[module_id].data.ptr)[0];
+static void update(size_t module_id) {
+    int *counter = &((int *)modules[module_id].data.ptr)[1];
+    int timerfd = ((int *)modules[module_id].data.ptr)[0];
     uint64_t expirations;
-    ssize_t s =
-        read (timerfd, &expirations, sizeof (uint64_t));
+    ssize_t s = read(timerfd, &expirations, sizeof(uint64_t));
     if (*counter > 0 && s == -1) {
-        perror ("read timerfd");
-        exit (EXIT_FAILURE);
+        perror("read timerfd");
+        exit(EXIT_FAILURE);
     }
     *counter += s == -1 ? 0 : expirations;
 
     for (size_t i = 0; i < modules_cnt; i++)
         if (modules[i].interval && *counter % modules[i].interval == 0)
-            modules[i].update (i);
+            modules[i].update(i);
 }
 
-void init_timer (int epoll_fd) {
+void init_timer(int epoll_fd) {
     INIT_BASE;
 
     // 从某种意义上讲，timer 是实时的，因此下面的代码是在注册 epoll
-    int timer_fd = create_timer ();
+    int timer_fd = create_timer();
 
     struct epoll_event timer_event;
     timer_event.events = EPOLLIN | EPOLLET;
     timer_event.data.u64 = module_id;
-    if (epoll_ctl (epoll_fd, EPOLL_CTL_ADD, timer_fd, &timer_event) == -1) {
-        perror ("epoll_ctl timer");
-        exit (EXIT_FAILURE);
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, timer_fd, &timer_event) == -1) {
+        perror("epoll_ctl timer");
+        exit(EXIT_FAILURE);
     }
 
-    modules[module_id].data.ptr = malloc (sizeof (int) * 2);
-    ((int *) modules[module_id].data.ptr)[0] = timer_fd;
-    ((int *) modules[module_id].data.ptr)[1] = 0;
+    modules[module_id].data.ptr = malloc(sizeof(int) * 2);
+    ((int *)modules[module_id].data.ptr)[0] = timer_fd;
+    ((int *)modules[module_id].data.ptr)[1] = 0;
     modules[module_id].update = update;
 
-    UPDATE_Q (module_id);
+    UPDATE_Q(module_id);
 }

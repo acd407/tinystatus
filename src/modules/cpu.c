@@ -99,6 +99,7 @@ static void update(size_t module_id) {
     bool is_active = modules[module_id].state;
 
     size_t icon_idx = (usage * ARRAY_SIZE(icons)) / 101;
+    icon_idx = min(icon_idx, ARRAY_SIZE(icons) - 1);
     const char *icon = icons[icon_idx];
 
     size_t color_idx = (usage < 30) ? 0 : (usage < 60) ? 1 : 2;

@@ -26,21 +26,21 @@ static void update(size_t module_id) {
     char *icons[] = {
         "", "", "", "", "",
     };
-    size_t idx = ARRAY_SIZE(icons) * (temp - 40) / 61;
-    idx = idx > 0 ? idx : 0;
-    snprintf(output_str, sizeof(output_str), "%s\u2004%3.*f", icons[idx], temp < 10 ? 2 : 1, temp);
+    size_t icon_idx = ARRAY_SIZE(icons) * (temp - 40) / 61;
+    icon_idx = min(icon_idx, ARRAY_SIZE(icons) - 1);
+    snprintf(output_str, sizeof(output_str), "%s\u2004%3.*f", icons[icon_idx], temp < 10 ? 2 : 1, temp);
 
     char *colors[] = {COOL, IDLE, WARNING, CRITICAL};
     if (temp < 30)
-        idx = 0;
+        icon_idx = 0;
     else if (temp < 60)
-        idx = 1;
+        icon_idx = 1;
     else if (temp < 80)
-        idx = 2;
+        icon_idx = 2;
     else
-        idx = 3;
+        icon_idx = 3;
 
-    update_json(module_id, output_str, colors[idx]);
+    update_json(module_id, output_str, colors[icon_idx]);
 }
 
 static void cleanup(size_t module_id) {

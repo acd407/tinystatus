@@ -15,65 +15,63 @@
 #define BRIGHTNESS "/sys/class/backlight/intel_backlight/brightness"
 #define MAX_BRIGHTNESS "/sys/class/backlight/intel_backlight/max_brightness"
 
-#define BUF_LEN (5 * (sizeof (struct inotify_event)))
+#define BUF_LEN (5 * (sizeof(struct inotify_event)))
 
-static void update (size_t module_id) {
+static void update(size_t module_id) {
     // 读取 inotify 事件
     char buffer[BUF_LEN];
-    ssize_t len = read (modules[module_id].data.num, buffer, BUF_LEN);
+    ssize_t len = read(modules[module_id].data.num, buffer, BUF_LEN);
     if (len == -1 && errno != EAGAIN) {
-        perror ("read");
-        exit (EXIT_FAILURE);
+        perror("read");
+        exit(EXIT_FAILURE);
     }
 
     // 处理事件
-    uint64_t brightness_percent =
-        read_uint64_file (BRIGHTNESS) * 100 / read_uint64_file (MAX_BRIGHTNESS);
-    assert (brightness_percent <= 100);
+    uint64_t brightness_percent = read_uint64_file(BRIGHTNESS) * 100 / read_uint64_file(MAX_BRIGHTNESS);
+    assert(brightness_percent <= 100);
     brightness_percent = (brightness_percent + 1) / 5 * 5;
 
     const char *icons[] = {
-        "", "", "", "", "", "", "", "",
-        "", "", "", "", "", "", "",
+        "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
     };
-    size_t idx = ARRAY_SIZE (icons) * brightness_percent / 101;
+    size_t idx = ARRAY_SIZE(icons) * brightness_percent / 101;
 
     char output_str[] = "\u2004100%";
-    snprintf (
-        output_str, sizeof (output_str), "%s\u2004%*ld%%", icons[idx],
-        brightness_percent == 100 ? 3 : 2, brightness_percent
+    snprintf(
+        output_str, sizeof(output_str), "%s\u2004%*ld%%", icons[idx], brightness_percent == 100 ? 3 : 2,
+        brightness_percent
     );
 
-    update_json (module_id, output_str, IDLE);
+    update_json(module_id, output_str, IDLE);
 }
 
-static void alter (size_t module_id, uint64_t btn) {
-    (void) module_id;
+static void alter(size_t module_id, uint64_t btn) {
+    (void)module_id;
     switch (btn) {
     case 4: // up
-        system ("brightnessctl --class=backlight set +10% >/dev/null &");
+        system("brightnessctl --class=backlight set +10% >/dev/null &");
         break;
     case 5: // down
-        system ("brightnessctl --class=backlight set 10%- >/dev/null &");
+        system("brightnessctl --class=backlight set 10%- >/dev/null &");
         break;
     }
 }
 
-void init_backlight (int epoll_fd) {
+void init_backlight(int epoll_fd) {
     INIT_BASE;
 
     // 初始化 inotify
-    int inotify_fd = inotify_init1 (IN_NONBLOCK);
+    int inotify_fd = inotify_init1(IN_NONBLOCK);
     if (inotify_fd == -1) {
-        perror ("inotify_init1");
+        perror("inotify_init1");
         modules_cnt--;
         return;
     }
 
     // 添加需要监控的文件
-    if (inotify_add_watch (inotify_fd, BRIGHTNESS, IN_MODIFY) == -1) {
-        perror ("inotify_add_watch");
-        close (inotify_fd);
+    if (inotify_add_watch(inotify_fd, BRIGHTNESS, IN_MODIFY) == -1) {
+        perror("inotify_add_watch");
+        close(inotify_fd);
         modules_cnt--;
         return;
     }
@@ -82,9 +80,9 @@ void init_backlight (int epoll_fd) {
     struct epoll_event ev;
     ev.events = EPOLLIN;
     ev.data.u64 = module_id;
-    if (epoll_ctl (epoll_fd, EPOLL_CTL_ADD, inotify_fd, &ev) == -1) {
-        perror ("epoll_ctl");
-        close (inotify_fd);
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, inotify_fd, &ev) == -1) {
+        perror("epoll_ctl");
+        close(inotify_fd);
         modules_cnt--;
         return;
     }
@@ -93,5 +91,5 @@ void init_backlight (int epoll_fd) {
     modules[module_id].update = update;
     modules[module_id].alter = alter;
 
-    UPDATE_Q (module_id);
+    UPDATE_Q(module_id);
 }

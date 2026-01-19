@@ -6,45 +6,43 @@
 #include <string.h>
 #include <tools.h>
 
-static void get_usage (uint64_t *used, double *percent) {
+static void get_usage(uint64_t *used, double *percent) {
     FILE *fp;
     char buffer[BUF_SIZE];
     char *token;
 
-    fp = fopen ("/proc/meminfo", "r");
+    fp = fopen("/proc/meminfo", "r");
     if (!fp) {
-        perror ("Failed to open /proc/meminfo");
-        exit (EXIT_FAILURE);
+        perror("Failed to open /proc/meminfo");
+        exit(EXIT_FAILURE);
     }
 
     uint64_t total = 0, avaliable = 0;
-    while (fgets (buffer, sizeof (buffer), fp)) {
-        if (strncmp (buffer, "MemTotal:", 9) == 0) {
-            token = strtok (buffer, " ");
-            token = strtok (NULL, " ");
-            total = strtoul (token, NULL, 10);
-        } else if (strncmp (buffer, "MemAvailable:", 13) == 0) {
-            token = strtok (buffer, " ");
-            token = strtok (NULL, " ");
-            avaliable = strtoul (token, NULL, 10);
+    while (fgets(buffer, sizeof(buffer), fp)) {
+        if (strncmp(buffer, "MemTotal:", 9) == 0) {
+            token = strtok(buffer, " ");
+            token = strtok(NULL, " ");
+            total = strtoul(token, NULL, 10);
+        } else if (strncmp(buffer, "MemAvailable:", 13) == 0) {
+            token = strtok(buffer, " ");
+            token = strtok(NULL, " ");
+            avaliable = strtoul(token, NULL, 10);
         }
     }
 
-    fclose (fp);
+    fclose(fp);
 
     *used = total - avaliable;
-    *percent = (double) *used / total;
+    *percent = (double)*used / total;
     *used *= 1024;
 }
 
-static void update (size_t module_id) {
+static void update(size_t module_id) {
     char output_str[] = "󰍛\u2004\0.00K";
     uint64_t used;
     double usage;
-    get_usage (&used, &usage);
-    format_storage_units (
-        (char (*)[6]) (output_str + strlen (output_str)), used
-    );
+    get_usage(&used, &usage);
+    format_storage_units((char (*)[6])(output_str + strlen(output_str)), used);
 
     char *colors[] = {IDLE, WARNING, CRITICAL};
     size_t idx;
@@ -55,15 +53,15 @@ static void update (size_t module_id) {
     else
         idx = 2;
 
-    update_json (module_id, output_str, colors[idx]);
+    update_json(module_id, output_str, colors[idx]);
 }
 
-void init_memory (int epoll_fd) {
-    (void) epoll_fd;
+void init_memory(int epoll_fd) {
+    (void)epoll_fd;
     INIT_BASE;
 
     modules[module_id].update = update;
     modules[module_id].interval = 2;
 
-    UPDATE_Q (module_id);
+    UPDATE_Q(module_id);
 }
