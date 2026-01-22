@@ -8,6 +8,10 @@
 #include <sys/epoll.h>
 #include <unistd.h>
 
+struct stdin_data {
+    int fd;
+};
+
 // 设置非阻塞 IO
 static void set_nonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
@@ -23,7 +27,8 @@ static void set_nonblocking(int fd) {
 
 static void update(size_t module_id) {
     char input[BUF_SIZE];
-    ssize_t n = read(modules[module_id].data.num, input, BUF_SIZE - 1);
+    struct stdin_data *data = (struct stdin_data *)modules[module_id].data;
+    ssize_t n = read(data->fd, input, BUF_SIZE - 1);
 
     if (n == -1) {
         if (errno != EAGAIN) {
@@ -71,6 +76,13 @@ static void update(size_t module_id) {
     cJSON_Delete(root);
 }
 
+static void del(size_t module_id) {
+    struct stdin_data *data = (struct stdin_data *)modules[module_id].data;
+    if (data) {
+        free(data);
+    }
+}
+
 void init_stdin(int epoll_fd) {
     INIT_BASE;
 
@@ -84,8 +96,17 @@ void init_stdin(int epoll_fd) {
         exit(EXIT_FAILURE);
     }
 
-    modules[module_id].data.num = STDIN_FILENO;
+    // 分配并初始化结构体
+    struct stdin_data *data = malloc(sizeof(struct stdin_data));
+    if (!data) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    data->fd = STDIN_FILENO;
+
+    modules[module_id].data = data;
     modules[module_id].update = update;
+    modules[module_id].del = del;
 
     UPDATE_Q(module_id);
 }

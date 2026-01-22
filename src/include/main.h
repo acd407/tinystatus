@@ -11,10 +11,7 @@ typedef struct {
     void (*alter)(size_t, uint64_t); // 改变模块状态时的回调函数
     void (*update)(size_t);          // 更新模块状态时的回调函数
     void (*del)(size_t);             // 析构函数
-    union {                          // 模块内部数据，由模块自己决定如何实现
-        void *ptr;
-        uint64_t num;
-    } data;
+    void *data;                      // 模块内部数据，指向各模块自定义的结构体
 } module_t;
 
 extern module_t modules[];

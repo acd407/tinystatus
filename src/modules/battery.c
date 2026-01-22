@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/epoll.h>
 #include <time.h>
 #include <tools.h>
@@ -14,6 +15,13 @@
 #define UPOWER_SERVICE "org.freedesktop.UPower"
 #define DEVICE_INTERFACE "org.freedesktop.UPower.Device"
 #define BATTERY "/org/freedesktop/UPower/devices/battery_BAT0"
+#define AC_ONLINE_PATH "/sys/class/power_supply/AC/online"
+
+// 定义电池模块数据结构
+typedef struct {
+    DBusConnection *conn;
+    char *ac_online_path;
+} battery_data_t;
 
 static void dbus_get_property(
     DBusConnection *conn, const char *device_path, const char *property_name, int expected_type, void *value
@@ -54,15 +62,23 @@ static void dbus_get_property(
 typedef enum { UNKNOWN, CHARGING, DISCHARGING, EMPTY, FULLY_CHARGED, PENDING_CHARGE, PENDING_DISCHARGE, LAST } State;
 
 static void get_battery_property(
-    uint64_t module_id, State *state, double *percentage, int64_t *time, double *energy, double *energy_rate
+    uint64_t module_id, State *state, double *percentage, int64_t *time, double *energy, double *energy_rate,
+    bool *is_charging
 ) {
-    DBusConnection *conn = modules[module_id].data.ptr;
+    battery_data_t *data = (battery_data_t *)modules[module_id].data;
+    DBusConnection *conn = data->conn;
     dbus_connection_read_write(conn, 0);
 
     dbus_get_property(conn, BATTERY, "State", DBUS_TYPE_UINT32, state);
     dbus_get_property(conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, energy);
     dbus_get_property(conn, BATTERY, "Percentage", DBUS_TYPE_DOUBLE, percentage);
     dbus_get_property(conn, BATTERY, "EnergyRate", DBUS_TYPE_DOUBLE, energy_rate);
+
+    // 检查AC电源是否在线
+    if (is_charging != NULL && data->ac_online_path != NULL) {
+        uint64_t online = read_uint64_file(data->ac_online_path);
+        *is_charging = (online == 1);
+    }
 
     switch (*state) {
     case CHARGING:
@@ -86,8 +102,14 @@ static void update(size_t module_id) {
     State state = UNKNOWN;
     double energy = 0, percentage_float = 0, energy_rate = 0;
     int64_t time2ef = -1; // time to Empty/Full
+    bool is_charging = false;
 
-    get_battery_property(module_id, &state, &percentage_float, &time2ef, &energy, &energy_rate);
+    get_battery_property(module_id, &state, &percentage_float, &time2ef, &energy, &energy_rate, &is_charging);
+
+    // 如果AC在线，则强制设置为充电状态
+    if (is_charging) {
+        state = CHARGING;
+    }
 
     uint64_t percentage = percentage_float;
     char output_str[100], *output_p = output_str;
@@ -144,8 +166,10 @@ static void update(size_t module_id) {
         if (time2ef > 0) {
             uint64_t hours = time2ef / 3600;
             uint64_t minutes = (time2ef - hours * 3600) / 60;
-            output_p +=
-                snprintf(output_p, sizeof(output_str) - (output_p - output_str), "\u2004(%ld:%02ld)", hours, minutes);
+            if (state == DISCHARGING || hours < 5)
+                output_p += snprintf(
+                    output_p, sizeof(output_str) - (output_p - output_str), "\u2004(%ld:%02ld)", hours, minutes
+                );
         }
     }
 
@@ -167,7 +191,16 @@ static void alter(size_t module_id, uint64_t btn) {
 }
 
 static void del(uint64_t module_id) {
-    dbus_connection_unref(modules[module_id].data.ptr);
+    battery_data_t *data = (battery_data_t *)modules[module_id].data;
+    if (data != NULL) {
+        if (data->conn != NULL) {
+            dbus_connection_unref(data->conn);
+        }
+        if (data->ac_online_path != NULL) {
+            free(data->ac_online_path);
+        }
+        free(data);
+    }
 }
 
 void init_battery(int epoll_fd) {
@@ -196,6 +229,39 @@ void init_battery(int epoll_fd) {
         return;
     }
 
+    // 创建电池模块数据结构
+    battery_data_t *data = malloc(sizeof(battery_data_t));
+    if (data == NULL) {
+        dbus_connection_unref(conn);
+        modules_cnt--;
+        return;
+    }
+
+    // 初始化数据结构
+    data->conn = conn;
+    data->ac_online_path = NULL;
+
+    // 动态发现AC电源路径
+    // 首先找到type为Mains的电源设备
+    char *type_path = match_content_path("/sys/class/power_supply/*/type", "Mains");
+    if (type_path) {
+        // 将type文件路径转换为online文件路径
+        data->ac_online_path = regex(type_path, "type", "online");
+        free(type_path);
+        fprintf(stderr, "Found AC online path: %s\n", data->ac_online_path);
+    } else {
+        // 如果找不到，使用默认路径
+        fprintf(stderr, "Failed to find AC online path, using default\n");
+        data->ac_online_path = strdup(AC_ONLINE_PATH);
+    }
+
+    if (data->ac_online_path == NULL) {
+        free(data);
+        dbus_connection_unref(conn);
+        modules_cnt--;
+        return;
+    }
+
     // 添加D-Bus连接到epoll
     int dbus_fd;
     dbus_connection_get_unix_fd(conn, &dbus_fd);
@@ -204,12 +270,15 @@ void init_battery(int epoll_fd) {
     ev.data.u64 = module_id;
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, dbus_fd, &ev) == -1) {
         perror("epoll_ctl: dbus_fd");
-        dbus_connection_unref(conn);
+        // 使用del函数清理资源
+        modules[module_id].data = data;
+        modules[module_id].del = del;
+        del(module_id);
         modules_cnt--;
         return;
     }
 
-    modules[module_id].data.ptr = conn;
+    modules[module_id].data = data;
     modules[module_id].update = update;
     modules[module_id].alter = alter;
     modules[module_id].del = del;

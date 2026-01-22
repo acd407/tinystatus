@@ -45,8 +45,8 @@ static void get_wireless_status(char *ifname, int64_t *link, int64_t *level) {
 }
 
 static void get_network_speed_and_master_dev(size_t module_id, uint64_t *rx, uint64_t *tx, char *master) {
-    uint64_t *prev_rx = &((uint64_t *)modules[module_id].data.ptr)[0];
-    uint64_t *prev_tx = &((uint64_t *)modules[module_id].data.ptr)[1];
+    uint64_t *prev_rx = &((uint64_t *)modules[module_id].data)[0];
+    uint64_t *prev_tx = &((uint64_t *)modules[module_id].data)[1];
 
     FILE *fp;
     char buffer[BUF_SIZE];
@@ -198,7 +198,7 @@ static void alter(size_t module_id, uint64_t btn) {
 }
 
 static void del(size_t module_id) {
-    free(modules[module_id].data.ptr);
+    free(modules[module_id].data);
 }
 
 void init_network(int epoll_fd) {
@@ -208,9 +208,14 @@ void init_network(int epoll_fd) {
     modules[module_id].update = update;
     modules[module_id].alter = alter;
     modules[module_id].interval = 1;
-    modules[module_id].data.ptr = malloc(sizeof(uint64_t) * 2);
-    ((uint64_t *)modules[module_id].data.ptr)[0] = 0; // prev_rx
-    ((uint64_t *)modules[module_id].data.ptr)[1] = 0; // prev_tx
+    modules[module_id].data = malloc(sizeof(uint64_t) * 2);
+    if (!modules[module_id].data) {
+        perror("malloc");
+        modules_cnt--;
+        return;
+    }
+    ((uint64_t *)modules[module_id].data)[0] = 0; // prev_rx
+    ((uint64_t *)modules[module_id].data)[1] = 0; // prev_tx
     modules[module_id].del = del;
 
     UPDATE_Q(module_id);

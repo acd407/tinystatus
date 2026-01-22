@@ -12,15 +12,19 @@
 #include <sys/timerfd.h>
 #include <tools.h>
 #include <unistd.h>
+
 #define BRIGHTNESS "/sys/class/backlight/intel_backlight/brightness"
 #define MAX_BRIGHTNESS "/sys/class/backlight/intel_backlight/max_brightness"
+#define BUF_LEN 4096
 
-#define BUF_LEN (5 * (sizeof(struct inotify_event)))
+struct backlight_data {
+    int inotify_fd;
+};
 
 static void update(size_t module_id) {
-    // 读取 inotify 事件
     char buffer[BUF_LEN];
-    ssize_t len = read(modules[module_id].data.num, buffer, BUF_LEN);
+    struct backlight_data *data = (struct backlight_data *)modules[module_id].data;
+    ssize_t len = read(data->inotify_fd, buffer, BUF_LEN);
     if (len == -1 && errno != EAGAIN) {
         perror("read");
         exit(EXIT_FAILURE);
@@ -57,6 +61,16 @@ static void alter(size_t module_id, uint64_t btn) {
     }
 }
 
+static void del(size_t module_id) {
+    struct backlight_data *data = (struct backlight_data *)modules[module_id].data;
+    if (data) {
+        if (data->inotify_fd >= 0) {
+            close(data->inotify_fd);
+        }
+        free(data);
+    }
+}
+
 void init_backlight(int epoll_fd) {
     INIT_BASE;
 
@@ -68,28 +82,41 @@ void init_backlight(int epoll_fd) {
         return;
     }
 
-    // 添加需要监控的文件
-    if (inotify_add_watch(inotify_fd, BRIGHTNESS, IN_MODIFY) == -1) {
+    // 监控亮度文件变化
+    int wd = inotify_add_watch(inotify_fd, BRIGHTNESS, IN_MODIFY);
+    if (wd == -1) {
         perror("inotify_add_watch");
         close(inotify_fd);
         modules_cnt--;
         return;
     }
 
-    // 将 inotify 文件描述符添加到 epoll
-    struct epoll_event ev;
-    ev.events = EPOLLIN;
-    ev.data.u64 = module_id;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, inotify_fd, &ev) == -1) {
-        perror("epoll_ctl");
+    // 分配并初始化结构体
+    struct backlight_data *data = malloc(sizeof(struct backlight_data));
+    if (!data) {
+        perror("malloc");
         close(inotify_fd);
         modules_cnt--;
         return;
     }
+    data->inotify_fd = inotify_fd;
 
-    modules[module_id].data.num = inotify_fd;
+    // 注册 epoll 事件
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLET;
+    ev.data.u64 = module_id;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, inotify_fd, &ev) == -1) {
+        perror("epoll_ctl");
+        close(inotify_fd);
+        free(data);
+        modules_cnt--;
+        return;
+    }
+
+    modules[module_id].data = data;
     modules[module_id].update = update;
     modules[module_id].alter = alter;
+    modules[module_id].del = del;
 
     UPDATE_Q(module_id);
 }

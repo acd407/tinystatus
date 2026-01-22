@@ -15,9 +15,16 @@
 #define SVI2_P_SoC "/sys/class/hwmon/hwmon3/power2_input"
 #define USE_RAPL
 
+// CPU模块数据结构体
+typedef struct {
+    uint64_t prev_idle;
+    uint64_t prev_total;
+    uint64_t prev_energy;
+    char *package_path;
+} cpu_data_t;
+
 static double get_usage(size_t module_id) {
-    uint64_t *prev_idle = &((uint64_t *)modules[module_id].data.ptr)[0];
-    uint64_t *prev_total = &((uint64_t *)modules[module_id].data.ptr)[1];
+    cpu_data_t *data = (cpu_data_t *)modules[module_id].data;
     char buffer[BUF_SIZE];
     uint64_t idx, nice, system, idle, iowait, irq, softirq;
 
@@ -38,35 +45,33 @@ static double get_usage(size_t module_id) {
 
     uint64_t total = idx + nice + system + idle + iowait + irq + softirq;
     uint64_t total_idle = idle + iowait;
-    uint64_t total_diff = total - *prev_total;
-    uint64_t idle_diff = total_idle - *prev_idle;
+    uint64_t total_diff = total - data->prev_total;
+    uint64_t idle_diff = total_idle - data->prev_idle;
 
     double cpu_usage;
-    if (*prev_total != 0 && total_diff != 0) {
+    if (data->prev_total != 0 && total_diff != 0) {
         cpu_usage = 100.0f * (total_diff - idle_diff) / total_diff;
     } else {
         cpu_usage = 0.0f;
     }
 
-    *prev_idle = total_idle;
-    *prev_total = total;
+    data->prev_idle = total_idle;
+    data->prev_total = total;
 
     return cpu_usage;
 }
 
 #ifdef USE_RAPL
 static double get_power(size_t module_id) {
-    uint64_t *previous_energy = &((uint64_t *)modules[module_id].data.ptr)[2];
-    char *package_path = ((char **)modules[module_id].data.ptr)[3]; // 路径存储在第4个位置
+    cpu_data_t *data = (cpu_data_t *)modules[module_id].data;
+    uint64_t energy = read_uint64_file(data->package_path);
 
-    uint64_t energy = read_uint64_file(package_path);
-
-    if (!*previous_energy)
-        *previous_energy = energy;
-    uint64_t energy_diff = energy - *previous_energy;
+    if (!data->prev_energy)
+        data->prev_energy = energy;
+    uint64_t energy_diff = energy - data->prev_energy;
     double power = (double)energy_diff / 1e6;
 
-    *previous_energy = energy;
+    data->prev_energy = energy;
     return power;
 }
 #else
@@ -121,13 +126,13 @@ static void update(size_t module_id) {
 }
 
 static void del(size_t module_id) {
-    // 释放路径内存
-    char **package_path = (char **)modules[module_id].data.ptr;
-    if (package_path[3]) {
-        free(package_path[3]);
+    cpu_data_t *data = (cpu_data_t *)modules[module_id].data;
+    if (data) {
+        if (data->package_path) {
+            free(data->package_path);
+        }
+        free(data);
     }
-    // 释放整个数据结构
-    free(modules[module_id].data.ptr);
 }
 
 void init_cpu(int epoll_fd) {
@@ -138,28 +143,38 @@ void init_cpu(int epoll_fd) {
     modules[module_id].update = update;
     modules[module_id].interval = 1;
 
-    // 分配内存结构：3个uint64_t + 1个char*指针
-    modules[module_id].data.ptr = malloc(sizeof(uint64_t) * 3 + sizeof(char *));
-    ((uint64_t *)modules[module_id].data.ptr)[0] = 0;
-    ((uint64_t *)modules[module_id].data.ptr)[1] = 0;
-    ((uint64_t *)modules[module_id].data.ptr)[2] = 0;
-    ((char **)modules[module_id].data.ptr)[3] = NULL; // 初始化指针为NULL
+    // 分配CPU数据结构体
+    cpu_data_t *data = malloc(sizeof(cpu_data_t));
+    if (!data) {
+        perror("malloc");
+        modules_cnt--;
+        return;
+    }
+
+    data->prev_idle = 0;
+    data->prev_total = 0;
+    data->prev_energy = 0;
+    data->package_path = NULL;
+
+    modules[module_id].data = data;
+    modules[module_id].del = del;
 
     // 查找RAPL路径
-    char **package_path_ptr = &((char **)modules[module_id].data.ptr)[3];
-
     // 首先找到匹配的name文件
     char *name_path = match_content_path("/sys/class/powercap/intel-rapl*/name", "package-0");
     if (name_path) {
-        *package_path_ptr = regex(name_path, "name", "energy_uj");
+        data->package_path = regex(name_path, "name", "energy_uj");
         free(name_path);
-        fprintf(stderr, "Found RAPL package path: %s\n", *package_path_ptr);
+        fprintf(stderr, "Found RAPL package path: %s\n", data->package_path);
     } else {
         fprintf(stderr, "Failed to find RAPL package path, using default\n");
-        *package_path_ptr = strdup(PACKAGE);
+        data->package_path = strdup(PACKAGE);
+        if (!data->package_path) {
+            perror("strdup");
+            modules_cnt--;
+            return;
+        }
     }
-
-    modules[module_id].del = del;
 
     UPDATE_Q(module_id);
 }

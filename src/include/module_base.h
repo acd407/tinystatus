@@ -16,7 +16,7 @@
     modules[module_id].del = NULL;                                                                                     \
     modules[module_id].interval = 0;                                                                                   \
     modules[module_id].state = 0;                                                                                      \
-    modules[module_id].data.ptr = NULL;                                                                                \
+    modules[module_id].data = NULL;                                                                                    \
     assert(module_id < MOD_SIZE);
 
 // 刷新那些不随时间刷新的 modules

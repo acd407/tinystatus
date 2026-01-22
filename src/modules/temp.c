@@ -15,7 +15,7 @@ static void update(size_t module_id) {
     char output_str[] = "ico\u200435.3";
 
     // 从模块数据中获取PACKAGE路径
-    char *package_path = (char *)modules[module_id].data.ptr;
+    char *package_path = (char *)modules[module_id].data;
     if (!package_path) {
         update_json(module_id, "N/A", CRITICAL);
         return;
@@ -45,9 +45,9 @@ static void update(size_t module_id) {
 
 static void cleanup(size_t module_id) {
     // 释放分配的PACKAGE路径内存
-    if (modules[module_id].data.ptr) {
-        free(modules[module_id].data.ptr);
-        modules[module_id].data.ptr = NULL;
+    if (modules[module_id].data) {
+        free(modules[module_id].data);
+        modules[module_id].data = NULL;
     }
 }
 
@@ -58,9 +58,9 @@ void init_temp(int epoll_fd) {
     char *package_path = NULL;
 
     // 查找Package温度传感器路径
-    char *label_path = match_content_path("/sys/class/hwmon/hwmon*/temp*_label", "Package id 0");
+    char *label_path = match_content_path("/sys/class/thermal/thermal_zone*/type", "x86_pkg_temp");
     if (label_path) {
-        package_path = regex(label_path, "temp(.*)_label", "temp\\1_input");
+        package_path = regex(label_path, "type", "temp");
         free(label_path);
         fprintf(stderr, "Found Package temperature sensor path: %s\n", package_path);
     } else {
@@ -69,7 +69,7 @@ void init_temp(int epoll_fd) {
     }
 
     // 将路径存储在模块数据中
-    modules[module_id].data.ptr = package_path;
+    modules[module_id].data = package_path;
 
     modules[module_id].update = update;
     modules[module_id].del = cleanup;

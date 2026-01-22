@@ -114,12 +114,12 @@ static void reload_microphone(int epoll_fd, size_t module_id);
 
 static void update(size_t module_id) {
     modules[module_id].interval = 0;
-    snd_mixer_t *handle = ((struct storage *)modules[module_id].data.ptr)->handle;
+    snd_mixer_t *handle = ((struct storage *)modules[module_id].data)->handle;
     int64_t volume = get_volume(handle);
     char output_str[] = "󰍭\u2004INF\0";
     if (volume == -2) {
         snprintf(output_str, sizeof(output_str), "󰍱");
-        int epoll_fd = ((struct storage *)modules[module_id].data.ptr)->epoll_fd;
+        int epoll_fd = ((struct storage *)modules[module_id].data)->epoll_fd;
         modules[module_id].del(module_id);
         reload_microphone(epoll_fd, module_id);
         modules[module_id].interval = 1; // 随时间刷新一次
@@ -144,7 +144,7 @@ static void update(size_t module_id) {
 }
 
 static void alter(size_t module_id, uint64_t btn) {
-    snd_mixer_t *handle = ((struct storage *)modules[module_id].data.ptr)->handle;
+    snd_mixer_t *handle = ((struct storage *)modules[module_id].data)->handle;
 
     switch (btn) {
     case 2: // middle button
@@ -171,7 +171,7 @@ static void alter(size_t module_id, uint64_t btn) {
 }
 
 static void del(size_t module_id) {
-    struct storage *storage = modules[module_id].data.ptr;
+    struct storage *storage = modules[module_id].data;
     epoll_ctl(storage->epoll_fd, EPOLL_CTL_DEL, storage->pfd_fd, NULL);
     if (storage->handle)
         snd_mixer_close(storage->handle);
@@ -213,10 +213,10 @@ static void reload_microphone(int epoll_fd, size_t module_id) {
 
     modules[module_id].update = update;
     modules[module_id].alter = alter;
-    modules[module_id].data.ptr = malloc(sizeof(struct storage));
-    ((struct storage *)modules[module_id].data.ptr)->handle = handle; // 保存混音器句柄
-    ((struct storage *)modules[module_id].data.ptr)->epoll_fd = epoll_fd;
-    ((struct storage *)modules[module_id].data.ptr)->pfd_fd = pfd.fd;
+    modules[module_id].data = malloc(sizeof(struct storage));
+    ((struct storage *)modules[module_id].data)->handle = handle; // 保存混音器句柄
+    ((struct storage *)modules[module_id].data)->epoll_fd = epoll_fd;
+    ((struct storage *)modules[module_id].data)->pfd_fd = pfd.fd;
     modules[module_id].del = del;
 }
 
