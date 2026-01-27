@@ -1,3 +1,6 @@
+#ifndef MODULES_H
+#define MODULES_H
+
 void init_backlight(int epoll_fd);
 void init_battery(int epoll_fd);
 void init_cpu(int epoll_fd);
@@ -10,3 +13,5 @@ void init_temp(int epoll_fd);
 void init_timer(int epoll_fd);
 void init_volume(int epoll_fd);
 void init_microphone(int epoll_fd);
+
+#endif // MODULES_H

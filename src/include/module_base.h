@@ -1,3 +1,6 @@
+#ifndef MODULE_BASE_H
+#define MODULE_BASE_H
+
 #include <assert.h>
 #include <main.h>
 
@@ -25,3 +28,5 @@
         if (modules[module_id].interval == 0)                                                                          \
             update(module_id);                                                                                         \
     } while (0)
+
+#endif // MODULE_BASE_H

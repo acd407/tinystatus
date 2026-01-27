@@ -1,3 +1,6 @@
+#ifndef MAIN_H
+#define MAIN_H
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -16,3 +19,5 @@ typedef struct {
 
 extern module_t modules[];
 extern size_t modules_cnt;
+
+#endif // MAIN_H

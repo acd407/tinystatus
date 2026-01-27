@@ -1,3 +1,6 @@
+#ifndef TOOLS_H
+#define TOOLS_H
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -27,3 +30,5 @@ char *match_content_path(const char *path_pattern, const char *target_content);
 // match_pattern: 匹配模式，如"temp(.*)_label"
 // replace_pattern: 替换模式，如"temp\\1_input"
 char *regex(const char *input_path, const char *match_pattern, const char *replace_pattern);
+
+#endif // TOOLS_H
