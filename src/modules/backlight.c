@@ -13,12 +13,12 @@
 #include <tools.h>
 #include <unistd.h>
 
-#define BRIGHTNESS "/sys/class/backlight/intel_backlight/brightness"
-#define MAX_BRIGHTNESS "/sys/class/backlight/intel_backlight/max_brightness"
 #define BUF_LEN 4096
 
 struct backlight_data {
     int inotify_fd;
+    char *brightness_path;
+    char *max_brightness_path;
 };
 
 static void update(size_t module_id) {
@@ -31,7 +31,7 @@ static void update(size_t module_id) {
     }
 
     // 处理事件
-    uint64_t brightness_percent = read_uint64_file(BRIGHTNESS) * 100 / read_uint64_file(MAX_BRIGHTNESS);
+    uint64_t brightness_percent = read_uint64_file(data->brightness_path) * 100 / read_uint64_file(data->max_brightness_path);
     assert(brightness_percent <= 100);
     brightness_percent = (brightness_percent + 1) / 5 * 5;
 
@@ -67,6 +67,12 @@ static void del(size_t module_id) {
         if (data->inotify_fd >= 0) {
             close(data->inotify_fd);
         }
+        if (data->brightness_path) {
+            free(data->brightness_path);
+        }
+        if (data->max_brightness_path) {
+            free(data->max_brightness_path);
+        }
         free(data);
     }
 }
@@ -74,19 +80,10 @@ static void del(size_t module_id) {
 void init_backlight(int epoll_fd) {
     INIT_BASE;
 
-    // 初始化 inotify
-    int inotify_fd = inotify_init1(IN_NONBLOCK);
-    if (inotify_fd == -1) {
-        perror("inotify_init1");
-        modules_cnt--;
-        return;
-    }
-
-    // 监控亮度文件变化
-    int wd = inotify_add_watch(inotify_fd, BRIGHTNESS, IN_MODIFY);
-    if (wd == -1) {
-        perror("inotify_add_watch");
-        close(inotify_fd);
+    // 查找backlight设备的type文件，内容为"raw"
+    char *type_path = match_content_path("/sys/class/backlight/*/type", "raw");
+    if (!type_path) {
+        fprintf(stderr, "Failed to find backlight device with type 'raw'\n");
         modules_cnt--;
         return;
     }
@@ -95,10 +92,51 @@ void init_backlight(int epoll_fd) {
     struct backlight_data *data = malloc(sizeof(struct backlight_data));
     if (!data) {
         perror("malloc");
-        close(inotify_fd);
+        free(type_path);
         modules_cnt--;
         return;
     }
+
+    // 使用regex函数将type替换为brightness和max_brightness
+    data->brightness_path = regex(type_path, "type", "brightness");
+    data->max_brightness_path = regex(type_path, "type", "max_brightness");
+    free(type_path);
+
+    if (!data->brightness_path || !data->max_brightness_path) {
+        fprintf(stderr, "Failed to generate brightness paths\n");
+        if (data->brightness_path) free(data->brightness_path);
+        if (data->max_brightness_path) free(data->max_brightness_path);
+        free(data);
+        modules_cnt--;
+        return;
+    }
+
+    fprintf(stderr, "Found backlight paths: brightness=%s, max_brightness=%s\n", 
+            data->brightness_path, data->max_brightness_path);
+
+    // 初始化 inotify
+    int inotify_fd = inotify_init1(IN_NONBLOCK);
+    if (inotify_fd == -1) {
+        perror("inotify_init1");
+        free(data->brightness_path);
+        free(data->max_brightness_path);
+        free(data);
+        modules_cnt--;
+        return;
+    }
+
+    // 监控亮度文件变化
+    int wd = inotify_add_watch(inotify_fd, data->brightness_path, IN_MODIFY);
+    if (wd == -1) {
+        perror("inotify_add_watch");
+        close(inotify_fd);
+        free(data->brightness_path);
+        free(data->max_brightness_path);
+        free(data);
+        modules_cnt--;
+        return;
+    }
+
     data->inotify_fd = inotify_fd;
 
     // 注册 epoll 事件
@@ -108,6 +146,8 @@ void init_backlight(int epoll_fd) {
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, inotify_fd, &ev) == -1) {
         perror("epoll_ctl");
         close(inotify_fd);
+        free(data->brightness_path);
+        free(data->max_brightness_path);
         free(data);
         modules_cnt--;
         return;
