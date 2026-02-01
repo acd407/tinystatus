@@ -31,7 +31,8 @@ static void update(size_t module_id) {
     }
 
     // 处理事件
-    uint64_t brightness_percent = read_uint64_file(data->brightness_path) * 100 / read_uint64_file(data->max_brightness_path);
+    uint64_t brightness_percent =
+        read_uint64_file(data->brightness_path) * 100 / read_uint64_file(data->max_brightness_path);
     assert(brightness_percent <= 100);
     brightness_percent = (brightness_percent + 1) / 5 * 5;
 
@@ -104,15 +105,19 @@ void init_backlight(int epoll_fd) {
 
     if (!data->brightness_path || !data->max_brightness_path) {
         fprintf(stderr, "Failed to generate brightness paths\n");
-        if (data->brightness_path) free(data->brightness_path);
-        if (data->max_brightness_path) free(data->max_brightness_path);
+        if (data->brightness_path)
+            free(data->brightness_path);
+        if (data->max_brightness_path)
+            free(data->max_brightness_path);
         free(data);
         modules_cnt--;
         return;
     }
 
-    fprintf(stderr, "Found backlight paths: brightness=%s, max_brightness=%s\n", 
-            data->brightness_path, data->max_brightness_path);
+    fprintf(
+        stderr, "Found backlight paths: brightness=%s, max_brightness=%s\n", data->brightness_path,
+        data->max_brightness_path
+    );
 
     // 初始化 inotify
     int inotify_fd = inotify_init1(IN_NONBLOCK);
