@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -154,7 +155,7 @@ char *regex(const char *input_path, const char *match_pattern, const char *repla
 
     // 构建结果路径
     char result_path[PATH_MAX];
-    char dir_path[PATH_MAX];
+    char dir_path[PATH_MAX - NAME_MAX - 1];
 
     // 保存目录部分
     if (filename != input_path) {
