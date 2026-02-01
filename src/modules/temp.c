@@ -27,7 +27,7 @@ static void update(size_t module_id) {
     char *icons[] = {
         "", "", "", "", "",
     };
-    size_t icon_idx = ARRAY_SIZE(icons) * (temp - 40) / 61;
+    size_t icon_idx = ARRAY_SIZE(icons) * (max(0, temp - 40)) / 61;
     icon_idx = min(icon_idx, ARRAY_SIZE(icons) - 1);
     snprintf(output_str, sizeof(output_str), "%s\u2004%3.*f", icons[icon_idx], temp < 10 ? 2 : 1, temp);
 

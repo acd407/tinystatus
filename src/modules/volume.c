@@ -186,8 +186,7 @@ static void alter(size_t module_id, uint64_t btn) {
 
     switch (btn) {
     case 2: // middle button
-        // 仍然使用pavucontrol打开高级音量控制
-        system("pavucontrol -t 3 &");
+        system("pwvucontrol -t 4 &");
         break;
     case 3: // right button - 切换静音
         toggle_mute(handle);

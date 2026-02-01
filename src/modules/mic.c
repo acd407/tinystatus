@@ -148,7 +148,7 @@ static void alter(size_t module_id, uint64_t btn) {
 
     switch (btn) {
     case 2: // middle button
-        system("pavucontrol -t 4 &");
+        system("pwvucontrol -t 3 &");
         break;
     case 3: // right button
         toggle_mute(handle);
