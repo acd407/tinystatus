@@ -37,7 +37,7 @@ static void init(int epoll_fd) { // 注册的顺序，决定输出的顺序
     modules_cnt = 0;
     init_battery(epoll_fd);
     init_backlight(epoll_fd);
-    init_microphone(epoll_fd);
+    // init_microphone(epoll_fd);  // 已合并到pulse模块中
     // init_volume(epoll_fd);
     init_pulse(epoll_fd);
     init_network(epoll_fd);
