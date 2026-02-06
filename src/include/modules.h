@@ -11,8 +11,6 @@ void init_network(int epoll_fd);
 void init_stdin(int epoll_fd);
 void init_temp(int epoll_fd);
 void init_timer(int epoll_fd);
-void init_volume(int epoll_fd);
-void init_microphone(int epoll_fd);
 void init_pulse(int epoll_fd);
 
 #endif // MODULES_H
