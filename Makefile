@@ -15,7 +15,6 @@ CFLAGS += $(shell pkg-config --cflags libcjson)
 CFLAGS += $(shell pkg-config --cflags dbus-1)
 CFLAGS += $(shell pkg-config --cflags libpulse)
 LDFLAGS += $(shell pkg-config --libs libcjson)
-LDFLAGS += $(shell pkg-config --libs alsa)
 LDFLAGS += $(shell pkg-config --libs dbus-1)
 LDFLAGS += $(shell pkg-config --libs libpulse)
 

@@ -6,10 +6,12 @@
 
 ## 注意
 
-**这应仅仅作为一个示例项目**，用户应该在获取代码后修改各个模块中的宏，
-以适应自己的设备（像 `dwm` 一样）。
+虽然本项目最初作为示例项目开发，但现在正逐步发展为实用工具。
+项目中已加入动态内容检测机制（如match_content_path和regex），
+以及使用PulseAudio默认设备替代硬编码的ALSA设备路径，
+使得配置更灵活，适配性更强。
 
-**由于很多模块直接硬编码 sysfs 路径，而每个人的外设不同，驱动程序也不同，所以假如不改动代码，那么编译可能没问题，但运行是必然会出错的。**
+**尽管如此，某些模块仍可能需要根据具体硬件环境进行微调。**
 
 **Tips: 项目的代码并不多，十分建议在 ai 的辅助下阅读代码。**
 
@@ -18,6 +20,16 @@
 ```sh
 find src -type f -exec sh -c 'echo // file: {} && cat {}' \; >out.c
 ```
+
+## 编译依赖
+
+本项目需要以下依赖库：
+
+- `libcjson` - JSON处理
+- `libdbus-1` - D-Bus通信
+- `libpulse` - PulseAudio音频管理
+- `alsa` - ALSA音频支持
+- `libpthread` - POSIX线程支持
 
 ## 特点
 
@@ -35,6 +47,15 @@ find src -type f -exec sh -c 'echo // file: {} && cat {}' \; >out.c
 将自己的所有信息注册到 `module_t modules[]` 中。
 随后有匹配 `module_id` 的事件时，由核心模块调用模块们对应的方法。
 
+## 新增功能说明
+
+最新版本引入了基于 PulseAudio 的音频管理模块 (`pulse.c`)，提供了以下增强功能：
+- 支持输出设备（扬声器/耳机）和输入设备（麦克风）的独立管理
+- 实时监听音频设备状态变化
+- 使用 PulseAudio API 替代 ALSA，提供更好的兼容性
+- 支持音量精确控制和静音切换
+- 提供更丰富的音频状态指示
+
 ## 实现的模块
 
 ### 核心模块
@@ -49,10 +70,9 @@ find src -type f -exec sh -c 'echo // file: {} && cat {}' \; >out.c
 | ------------- | ------------------------------------- |
 | `battery.c`   | 电量、百分比、预期放电/充满时间、功耗 |
 | `backlight.c` | 显示、调节 LCD 背光亮度               |
-| `volume.c`    | 显示、调节音量大小                    |
-| `volume.c`    | 显示、调节麦克风音量大小              |
+| `pulse.c`     | 显示、调节音量大小及麦克风音量（基于PulseAudio） |
 | `network.c`   | 显示网速和有线/无线网络的链路信息     |
-| `gpu.c`       | 显示 GPU 的使用率和显存占用           |
+| `memory.c`    | 内存使用率                            |
 | `cpu.c`       | 处理器使用率和功耗                    |
 | `temp.c`      | 处理器封装温度                        |
 | `date.c`      | 日期和时间                            |
@@ -90,9 +110,6 @@ typedef struct {
     void (*alter) (size_t, uint64_t); // 改变模块状态时的回调函数
     void (*update) (size_t);          // 更新模块状态时的回调函数
     void (*del) (size_t);             // 析构函数
-    union {                           // 模块内部数据，由模块自己决定如何实现
-        void *ptr;
-        uint64_t num;
-    } data;
+    void *data;                       // 模块内部数据，指向各模块自定义的结构体
 } module_t;
 ```

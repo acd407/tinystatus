@@ -279,7 +279,7 @@ static void update(size_t module_id) {
         // 输入设备（麦克风）显示
         if (storage->muted) {
             snprintf(output_str, sizeof(output_str), "󰍭");
-            update_json(module_id, output_str, CRITICAL);
+            update_json(module_id, output_str, WARNING);
         } else {
             snprintf(output_str, sizeof(output_str), "󰍬");
             update_json(module_id, output_str, IDLE);
@@ -292,7 +292,7 @@ static void update(size_t module_id) {
 
         if (storage->muted) {
             snprintf(output_str, sizeof(output_str), "󰸈");
-            update_json(module_id, output_str, CRITICAL);
+            update_json(module_id, output_str, WARNING);
         } else if (display_percent < 34) {
             snprintf(output_str, sizeof(output_str), "󰕿\u2004%d%%", display_percent);
             update_json(module_id, output_str, IDLE);
