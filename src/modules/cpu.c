@@ -20,6 +20,7 @@ typedef struct {
     uint64_t prev_idle;
     uint64_t prev_total;
     uint64_t prev_energy;
+    uint64_t max_energy_range;
     char *package_path;
 } cpu_data_t;
 
@@ -66,9 +67,20 @@ static double get_power(size_t module_id) {
     cpu_data_t *data = (cpu_data_t *)modules[module_id].data;
     uint64_t energy = read_uint64_file(data->package_path);
 
-    if (!data->prev_energy)
+    if (!data->prev_energy) {
         data->prev_energy = energy;
-    uint64_t energy_diff = energy - data->prev_energy;
+        return 0.0;
+    }
+
+    // 处理溢出回绕
+    uint64_t energy_diff;
+    if (energy >= data->prev_energy) {
+        energy_diff = energy - data->prev_energy;
+    } else {
+        // 发生了回绕，计算从prev_energy到最大值再到当前值的总差值
+        energy_diff = (data->max_energy_range - data->prev_energy) + energy;
+    }
+
     double power = (double)energy_diff / 1e6;
 
     data->prev_energy = energy;
@@ -154,6 +166,7 @@ void init_cpu(int epoll_fd) {
     data->prev_idle = 0;
     data->prev_total = 0;
     data->prev_energy = 0;
+    data->max_energy_range = 0;
     data->package_path = NULL;
 
     modules[module_id].data = data;
@@ -174,6 +187,18 @@ void init_cpu(int epoll_fd) {
             modules_cnt--;
             return;
         }
+    }
+
+    // 读取最大能量范围以处理回绕
+    char *range_path = regex(data->package_path, "energy_uj", "max_energy_range_uj");
+    if (range_path) {
+        data->max_energy_range = read_uint64_file(range_path);
+        free(range_path);
+        fprintf(stderr, "Max energy range: %lu\n", data->max_energy_range);
+    } else {
+        fprintf(stderr, "Failed to construct max_energy_range_uj path\n");
+        modules_cnt--;
+        return;
     }
 
     UPDATE_Q(module_id);
