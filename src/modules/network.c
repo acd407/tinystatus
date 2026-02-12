@@ -8,40 +8,134 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tools.h>
+#include <netlink/genl/genl.h>
+#include <netlink/genl/family.h>
+#include <netlink/genl/ctrl.h>
+#include <netlink/msg.h>
+#include <netlink/attr.h>
+#include <linux/nl80211.h>
+#include <netlink/socket.h>
 
-static void get_wireless_status(char *ifname, int64_t *link, int64_t *level) {
-    FILE *fp;
-    char buffer[BUF_SIZE];
+// 定义用于传递信息的结构体
+struct station_info {
+    int signal_dbm;
+    uint32_t tx_bitrate;
+};
 
-    fp = fopen("/proc/net/wireless", "r");
-    if (!fp) {
-        perror("Failed to open /proc/net/wireless");
+// 回调函数：处理 NL80211_CMD_NEW_STATION 响应
+static int parse_station_info(struct nl_msg *msg, void *arg) {
+    struct nlattr *tb[NL80211_ATTR_MAX + 1];
+    struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
+    struct station_info *info = (struct station_info *)arg;
+
+    // 解析顶层属性
+    nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0), genlmsg_attrlen(gnlh, 0), NULL);
+
+    if (tb[NL80211_ATTR_STA_INFO]) {
+        struct nlattr *sinfo[NL80211_STA_INFO_MAX + 1];
+        nla_parse_nested(sinfo, NL80211_STA_INFO_MAX, tb[NL80211_ATTR_STA_INFO], NULL);
+
+        if (sinfo[NL80211_STA_INFO_SIGNAL]) {
+            info->signal_dbm = (int8_t)nla_get_u8(sinfo[NL80211_STA_INFO_SIGNAL]);
+        }
+
+        if (sinfo[NL80211_STA_INFO_TX_BITRATE]) {
+            struct nlattr *rinfo[NL80211_RATE_INFO_MAX + 1];
+            nla_parse_nested(rinfo, NL80211_RATE_INFO_MAX, sinfo[NL80211_STA_INFO_TX_BITRATE], NULL);
+
+            if (rinfo[NL80211_RATE_INFO_BITRATE32]) {
+                info->tx_bitrate = nla_get_u32(rinfo[NL80211_RATE_INFO_BITRATE32]);
+            } else if (rinfo[NL80211_RATE_INFO_BITRATE]) {
+                info->tx_bitrate = nla_get_u16(rinfo[NL80211_RATE_INFO_BITRATE]);
+            }
+        }
+        return NL_SKIP; // 已获取，不再继续
+    }
+
+    return NL_SKIP;
+}
+
+static void get_wireless_status(char *ifname, int64_t *level, uint32_t *tx_bitrate) {
+    struct nl_sock *sock;
+    int driver_id;
+    int ifindex;
+    struct station_info info = {0, 0};
+    int err;
+
+    // 创建 netlink socket
+    sock = nl_socket_alloc();
+    if (!sock) {
+        perror("nl_socket_alloc failed");
         exit(EXIT_FAILURE);
     }
 
-    // 跳过前两行
-    fgets(buffer, sizeof(buffer), fp);
-    fgets(buffer, sizeof(buffer), fp);
-
-    while (fgets(buffer, sizeof(buffer), fp)) {
-        char *line = buffer;
-        while (*line == ' ')
-            line++; // 跳过前导空格
-
-        if (strncmp(ifname, line, strlen(ifname)) != 0)
-            continue;
-
-        line = strchr(line, ':');
-        if (!line)
-            continue;
-        line++;
-
-        if (sscanf(line, "%*d %ld. %ld. %*d", link, level) == 2)
-            break;
+    // 连接到 generic netlink
+    if (genl_connect(sock)) {
+        fprintf(stderr, "genl_connect failed\n");
+        nl_socket_free(sock);
+        exit(EXIT_FAILURE);
     }
 
-    *link = *link * 10 / 7; // rtw88 驱动程序链路质量最大值是 70，不是 100
-    fclose(fp);
+    // 获取 nl80211 的 family ID
+    driver_id = genl_ctrl_resolve(sock, "nl80211");
+    if (driver_id < 0) {
+        fprintf(stderr, "nl80211 not found\n");
+        nl_socket_free(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    // 获取接口索引
+    ifindex = if_nametoindex(ifname);
+    if (!ifindex) {
+        perror("if_nametoindex");
+        nl_socket_free(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    // 设置回调函数以解析响应
+    nl_socket_modify_cb(sock, NL_CB_VALID, NL_CB_CUSTOM, parse_station_info, &info);
+
+    // 构造请求消息：NL80211_CMD_GET_STATION
+    struct nl_msg *msg = nlmsg_alloc();
+    if (!msg) {
+        fprintf(stderr, "nlmsg_alloc failed\n");
+        nl_socket_free(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    genlmsg_put(msg, 0, 0, driver_id, 0, NLM_F_DUMP, NL80211_CMD_GET_STATION, 0);
+
+    nla_put_u32(msg, NL80211_ATTR_IFINDEX, ifindex);
+
+    // 发送请求并接收响应
+    err = nl_send_auto_complete(sock, msg);
+    if (err < 0) {
+        fprintf(stderr, "nl_send_auto_complete failed: %s\n", nl_geterror(err));
+        nlmsg_free(msg);
+        nl_socket_free(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    err = nl_recvmsgs_default(sock);
+    if (err < 0) {
+        fprintf(stderr, "nl_recvmsgs_default failed: %s\n", nl_geterror(err));
+        nlmsg_free(msg);
+        nl_socket_free(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    nlmsg_free(msg);
+    nl_socket_free(sock);
+
+    // 如果成功获取信号强度，计算链路质量
+    if (info.signal_dbm != 0) {
+        *level = info.signal_dbm;
+    } else {
+        *level = -100;
+    }
+
+    // 设置传输速率（单位：100 kbit/s）
+    *tx_bitrate = info.tx_bitrate;
 }
 
 static void get_network_speed_and_master_dev(size_t module_id, uint64_t *rx, uint64_t *tx, char *master) {
@@ -142,8 +236,9 @@ format_ether_output(size_t module_id, char *buffer, size_t buffer_size, char *if
 
 static void
 format_wireless_output(size_t module_id, char *buffer, size_t buffer_size, char *ifname, uint64_t rx, uint64_t tx) {
-    int64_t link = 0, level = 0;
-    get_wireless_status(ifname, &link, &level);
+    int64_t level = 0;
+    uint32_t tx_bitrate = 0;
+    get_wireless_status(ifname, &level, &tx_bitrate);
 
     const char *icons[] = {"󰤮", "󰤯", "󰤟", "󰤢", "󰤥", "󰤨"};
     size_t icon_idx = 0;
@@ -153,13 +248,17 @@ format_wireless_output(size_t module_id, char *buffer, size_t buffer_size, char 
     icon_idx += level > -65;
     icon_idx += level > -55;
 
-    // 采用 level 方法判断出问题的时候，就用 link 方法
-    if (icon_idx == 0 || icon_idx >= ARRAY_SIZE(icons)) {
-        icon_idx = ARRAY_SIZE(icons) * link / 101;
-    }
-
     if (modules[module_id].state) {
-        snprintf(buffer, buffer_size, "%s\u2004%ld%%\u2004%ldDB", icons[icon_idx], link, level);
+        if (tx_bitrate > 0) {
+            // tx_bitrate单位是100 kbit/s，转换为bit/s
+            uint64_t bitrate_bps = (uint64_t)tx_bitrate * 100 * 1000;
+            char rate_str[6];
+            format_storage_units(&rate_str, bitrate_bps);
+            snprintf(buffer, buffer_size, "%s\u2004%s\u2004%ldDB", icons[icon_idx], rate_str, level);
+        } else {
+            // 如果无法获取速率，只显示信号强度
+            snprintf(buffer, buffer_size, "%s\u2004%ldDB", icons[icon_idx], level);
+        }
     } else {
         char rxs[6], txs[6];
         format_storage_units(&rxs, rx);
