@@ -44,7 +44,7 @@ static void update(size_t module_id) {
     update_json(module_id, output_str, colors[idx]);
 }
 
-void init_gpu(int epoll_fd) {
+void init_amd_gpu(int epoll_fd) {
     (void)epoll_fd;
     INIT_BASE;
 

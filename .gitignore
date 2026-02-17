@@ -4,3 +4,5 @@ tinystatus
 *.o
 *.d
 .marscode
+/i915_gpu_usage
+/i915_vmem

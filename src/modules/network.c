@@ -268,7 +268,7 @@ format_wireless_output(size_t module_id, char *buffer, size_t buffer_size, char 
 }
 
 static void update(size_t module_id) {
-    char output_str[] = "🖧\u20040.00K\u20040.00K  ";
+    char output_str[] = "🖧\u20040.00K\u20040.00K    ";
 
     uint64_t rx = 0, tx = 0;
     char master_ifname[IFNAMSIZ] = {[0] = 0};
