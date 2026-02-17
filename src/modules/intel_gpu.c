@@ -120,7 +120,7 @@ static void read_vram_usage(int fd, uint64_t *vram, int *ready) {
     }
 }
 
-// 更新函数：处理管道数据并更新显示
+// 更新函数：处理epoll事件
 static void update(size_t module_id) {
     struct intel_gpu_storage *storage = (struct intel_gpu_storage *)modules[module_id].data;
 
@@ -168,11 +168,11 @@ static void alter(size_t module_id, uint64_t btn) {
     switch (btn) {
     case 3: // right button
         modules[module_id].state ^= 1;
-        modules[module_id].interval = modules[module_id].state + 1;
         break;
     default:
         return;
     }
+    // 立即更新显示
     modules[module_id].update(module_id);
 }
 
@@ -295,10 +295,10 @@ void init_intel_gpu(int epoll_fd) {
 
     // 设置模块回调函数
     modules[module_id].data = storage;
-    modules[module_id].update = update;
+    modules[module_id].update = update; // 直接使用update函数处理epoll事件
     modules[module_id].alter = alter;
     modules[module_id].del = del;
-    modules[module_id].interval = 1; // 每秒更新一次
+    modules[module_id].interval = 0; // 不使用定时器，完全事件驱动
 
     // 立即更新一次
     UPDATE_Q(module_id);
