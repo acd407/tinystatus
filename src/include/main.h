@@ -9,6 +9,7 @@
 
 typedef struct {
     char *output;                    // 模块输出，各模块输出由全局的output函数统一收集输出
+    char output_buf[256];            // 预分配的固定输出缓冲区，避免每次update时malloc
     uint64_t interval;               // 确定模块更新的时间间隔，0表示不随时间更新
     uint64_t state;                  // 模块的状态，用于可以改变状态的模块，如支持右键单击
     void (*alter)(size_t, uint64_t); // 改变模块状态时的回调函数

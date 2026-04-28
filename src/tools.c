@@ -9,9 +9,9 @@
 #include <sys/stat.h>
 #include <math.h>
 #include <limits.h>
-#include <cjson/cJSON.h>
 #include <glob.h>
 #include <regex.h>
+#include <stdarg.h>
 #include "tools.h"
 #include "main.h"
 
@@ -57,25 +57,20 @@ uint64_t read_uint64_file(char *file) {
     return ans;
 }
 
-void update_json(size_t module_id, const char *output_str, const char *color) {
-    cJSON *json = cJSON_CreateObject();
+void _update_json(size_t module_id, const char *output_str, ...) {
+    va_list ap;
+    va_start(ap, output_str);
+    const char *color = va_arg(ap, const char *);
+    va_end(ap);
 
-    char name[] = "A";
-    *name += module_id;
-
-    cJSON_AddStringToObject(json, "name", name);
-    cJSON_AddFalseToObject(json, "separator");
-    cJSON_AddNumberToObject(json, "separator_block_width", 0);
-    cJSON_AddStringToObject(json, "markup", "pango");
-    cJSON_AddStringToObject(json, "full_text", output_str);
-    cJSON_AddStringToObject(json, "color", color);
-
-    if (modules[module_id].output) {
-        free(modules[module_id].output);
-    }
-    modules[module_id].output = cJSON_PrintUnformatted(json);
-
-    cJSON_Delete(json);
+    module_t *mod = &modules[module_id];
+    char name = 'A' + module_id;
+    int n = snprintf(mod->output_buf, sizeof(mod->output_buf),
+        "{\"name\":\"%c\",\"full_text\":\"<span color='%s'>%s</span>\","
+        "\"separator\":false,\"separator_block_width\":0,\"markup\":\"pango\"}",
+        name, color, output_str);
+    assert(n > 0 && (size_t)n < sizeof(mod->output_buf));
+    mod->output = mod->output_buf;
 }
 
 // 查找匹配的文件路径

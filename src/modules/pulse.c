@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <cJSON.h>
 #include <module_base.h>
 #include <tools.h>
 #include <sys/eventfd.h>

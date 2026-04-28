@@ -1,4 +1,3 @@
-#include <cJSON.h>
 #include <dbus/dbus.h>
 #include <fcntl.h>
 #include <inttypes.h>

@@ -1,4 +1,3 @@
-#include <cJSON.h>
 #include <ctype.h>
 #include <module_base.h>
 #include <net/if.h>

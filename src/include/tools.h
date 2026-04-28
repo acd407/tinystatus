@@ -4,12 +4,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <stdarg.h>
+
 #define max(x, y) ((x) > (y) ? (x) : (y))
 #define min(x, y) ((x) > (y) ? (y) : (x))
 
 void format_storage_units(char (*buf)[6], double bytes);
 uint64_t read_uint64_file(char *file);
-void update_json(size_t module_id, const char *output_str, const char *color);
+
+// _update_json: variadic color 参数，默认 IDLE
+// update_json(m, "foo")      -> _update_json(m, "foo", IDLE)
+// update_json(m, "foo", RED) -> _update_json(m, "foo", RED)
+void _update_json(size_t module_id, const char *output_str, ...);
+#define update_json(module_id, output_str, ...) _update_json(module_id, output_str, ##__VA_ARGS__, IDLE)
 
 #define ARRAY_SIZE(arr)                                                                                                \
     ((void)(sizeof(struct {                                                                                            \

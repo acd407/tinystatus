@@ -1,4 +1,3 @@
-#include <cJSON.h>
 #include <fcntl.h>
 #include <math.h>
 #include <module_base.h>

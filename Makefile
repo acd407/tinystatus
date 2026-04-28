@@ -11,8 +11,8 @@ CFLAGS += -O2 -ffunction-sections -fdata-sections
 LDFLAGS += -s -Wl,--gc-sections
 endif
 
-CFLAGS += $(shell pkg-config --cflags libcjson dbus-1 libpulse libnl-3.0 libnl-genl-3.0 glib-2.0)
-LDFLAGS += $(shell pkg-config --libs libcjson dbus-1 libpulse libnl-3.0 libnl-genl-3.0 glib-2.0)
+CFLAGS += $(shell pkg-config --cflags dbus-1 libpulse libnl-3.0 libnl-genl-3.0 glib-2.0)
+LDFLAGS += $(shell pkg-config --libs dbus-1 libpulse libnl-3.0 libnl-genl-3.0 glib-2.0)
 
 SOURCES = $(wildcard src/*.c) $(wildcard src/modules/*.c)
 OBJECTS = $(patsubst %.c,%.o,$(SOURCES))

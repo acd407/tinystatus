@@ -1,4 +1,3 @@
-#include <cJSON.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>

@@ -1,10 +1,11 @@
-#include <cJSON.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <module_base.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/epoll.h>
 #include <unistd.h>
 
@@ -37,43 +38,39 @@ static void update(size_t module_id) {
         }
         return;
     } else if (n == 0) {
-        // EOF，i3bar 可能已关闭
         printf("i3bar closed the input\n");
         exit(EXIT_SUCCESS);
     }
     input[n] = '\0';
 
-    // parse，调用其他模块的 alter
-    const char *idx = input;
-    while (*idx && *idx != '{')
-        idx++;
-    if (!*idx) // 开始的行仅有 [
+    // 找到 JSON 对象的开始
+    const char *p = input;
+    while (*p && *p != '{')
+        p++;
+    if (!*p)
         return;
 
     fputs(input, stderr);
 
-    cJSON *root = cJSON_Parse(idx);
-    if (root == NULL) {
-        const char *error_ptr = cJSON_GetErrorPtr();
-        if (error_ptr != NULL) {
-            fprintf(stderr, "Error before: %s\n", error_ptr);
-        }
-        exit(EXIT_FAILURE);
+    // 解析 button: number
+    uint64_t btn = 0;
+    const char *btn_str = strstr(p, "\"button\":");
+    if (btn_str) {
+        const char *val = btn_str + 8; // skip "button":"
+        while (*val == ':' || *val == ' ')
+            val++;
+        btn = strtoul(val, NULL, 10);
     }
-    cJSON *name = cJSON_GetObjectItemCaseSensitive(root, "name");
-    cJSON *button = cJSON_GetObjectItemCaseSensitive(root, "button");
 
-    uint64_t btn_nr = 0;
-    if (cJSON_IsNumber(button))
-        btn_nr = button->valueint;
-    if (btn_nr != 0 && cJSON_IsString(name) && name->valuestring != NULL) {
-        uint64_t nr = name->valuestring[0] - 'A';
-        // output 应在模块内的 alter 中调用
-        // 因为一些模块可能根本在 alter 后就不想输出
-        if (modules[nr].alter)
-            modules[nr].alter(nr, btn_nr);
+    // 解析 name: single-char string like "A"
+    uint64_t nr = 0;
+    const char *name_str = strstr(p, "\"name\":\"");
+    if (name_str) {
+        nr = name_str[7] - 'A';
     }
-    cJSON_Delete(root);
+
+    if (btn != 0 && nr < MOD_SIZE && modules[nr].alter)
+        modules[nr].alter(nr, btn);
 }
 
 static void del(size_t module_id) {
