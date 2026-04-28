@@ -52,22 +52,12 @@ static void update(size_t module_id) {
 
     fputs(input, stderr);
 
-    // 解析 button: number
-    uint64_t btn = 0;
+    // {"name":"D","button":5}
     const char *btn_str = strstr(p, "\"button\":");
-    if (btn_str) {
-        const char *val = btn_str + 8; // skip "button":"
-        while (*val == ':' || *val == ' ')
-            val++;
-        btn = strtoul(val, NULL, 10);
-    }
+    uint64_t btn = btn_str[9] - '0';
 
-    // 解析 name: single-char string like "A"
-    uint64_t nr = 0;
     const char *name_str = strstr(p, "\"name\":\"");
-    if (name_str) {
-        nr = name_str[7] - 'A';
-    }
+    uint64_t nr = name_str[8] - 'A';
 
     if (btn != 0 && nr < MOD_SIZE && modules[nr].alter)
         modules[nr].alter(nr, btn);
