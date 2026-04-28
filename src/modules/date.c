@@ -13,7 +13,7 @@ static void update(size_t module_id) {
     char output_str[80];
     strftime(output_str, sizeof(output_str), "%a\u2004%m/%d\u2004%H:%M:%S", time_info);
 
-    update_json(module_id, output_str, IDLE);
+    update_json(module_id, output_str);
 }
 
 static void alter(size_t module_id, uint64_t btn) {

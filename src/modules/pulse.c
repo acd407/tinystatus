@@ -281,7 +281,7 @@ static void update(size_t module_id) {
             update_json(module_id, output_str, WARNING);
         } else {
             snprintf(output_str, sizeof(output_str), "󰍬");
-            update_json(module_id, output_str, IDLE);
+            update_json(module_id, output_str);
         }
     } else {
         // 输出设备（扬声器/耳机）显示
@@ -294,13 +294,13 @@ static void update(size_t module_id) {
             update_json(module_id, output_str, WARNING);
         } else if (display_percent < 34) {
             snprintf(output_str, sizeof(output_str), "󰕿\u2004%d%%", display_percent);
-            update_json(module_id, output_str, IDLE);
+            update_json(module_id, output_str);
         } else if (display_percent < 67) {
             snprintf(output_str, sizeof(output_str), "󰖀\u2004%d%%", display_percent);
-            update_json(module_id, output_str, IDLE);
+            update_json(module_id, output_str);
         } else {
             snprintf(output_str, sizeof(output_str), "󰕾\u2004%d%%", display_percent);
-            update_json(module_id, output_str, IDLE);
+            update_json(module_id, output_str);
         }
     }
 }

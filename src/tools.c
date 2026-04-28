@@ -65,10 +65,12 @@ void _update_json(size_t module_id, const char *output_str, ...) {
 
     module_t *mod = &modules[module_id];
     char name = 'A' + module_id;
-    int n = snprintf(mod->output_buf, sizeof(mod->output_buf),
+    int n = snprintf(
+        mod->output_buf, sizeof(mod->output_buf),
         "{\"name\":\"%c\",\"full_text\":\"<span color='%s'>%s</span>\","
         "\"separator\":false,\"separator_block_width\":0,\"markup\":\"pango\"}",
-        name, color, output_str);
+        name, color, output_str
+    );
     assert(n > 0 && (size_t)n < sizeof(mod->output_buf));
     mod->output = mod->output_buf;
 }

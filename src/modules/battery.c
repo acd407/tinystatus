@@ -174,7 +174,7 @@ static void update(size_t module_id) {
 
 generate_json:
 
-    update_json(module_id, output_str, IDLE);
+    update_json(module_id, output_str);
 }
 
 static void alter(size_t module_id, uint64_t btn) {
