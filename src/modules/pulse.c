@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -24,6 +25,7 @@ void get_server_info_callback(pa_context *c, const pa_server_info *i, void *user
 struct pulse_storage {
     int event_fd;
     int epoll_fd;
+    size_t module_id;           // 用于重连时重新注册 epoll
     pthread_t thread_id;
     pa_threaded_mainloop *mainloop;
     pa_context *context;
@@ -34,7 +36,11 @@ struct pulse_storage {
     pa_volume_t volume;
     int muted;
     device_type_t device_type; // 设备类型
+    int reconnect;              // 标记需重连，由回调设置、update 处理
 };
+
+// 初始化PulseAudio连接（前向声明）
+int init_pulse_audio(struct pulse_storage *storage);
 
 // 用于alter操作的结构体
 struct pulse_alter_data {
@@ -173,6 +179,7 @@ void subscribe_callback(pa_context *c, pa_subscription_event_type_t t, uint32_t 
 
 // 上下文状态回调函数
 void context_state_callback(pa_context *c, void *userdata) {
+    struct pulse_storage *storage = userdata;
     switch (pa_context_get_state(c)) {
     case PA_CONTEXT_READY: {
         pa_operation *op1 = pa_context_get_server_info(c, get_server_info_callback, userdata);
@@ -186,7 +193,6 @@ void context_state_callback(pa_context *c, void *userdata) {
 
         // 根据设备类型订阅相应的事件
         pa_subscription_mask_t mask = PA_SUBSCRIPTION_MASK_SERVER;
-        struct pulse_storage *storage = (struct pulse_storage *)userdata;
         if (storage->device_type == DEVICE_TYPE_OUTPUT) {
             mask |= PA_SUBSCRIPTION_MASK_SINK;
         } else if (storage->device_type == DEVICE_TYPE_INPUT) {
@@ -200,11 +206,21 @@ void context_state_callback(pa_context *c, void *userdata) {
     }
 
     case PA_CONTEXT_FAILED:
-        fprintf(stderr, "PulseAudio context failed.\n");
+        fprintf(stderr, "PulseAudio context failed, reconnecting...\n");
+        storage->reconnect = 1;
+        {
+            uint64_t val = 1;
+            write(storage->event_fd, &val, sizeof(val));
+        }
         break;
 
     case PA_CONTEXT_TERMINATED:
-        fprintf(stderr, "PulseAudio context terminated.\n");
+        fprintf(stderr, "PulseAudio context terminated, reconnecting...\n");
+        storage->reconnect = 1;
+        {
+            uint64_t val = 1;
+            write(storage->event_fd, &val, sizeof(val));
+        }
         break;
 
     default:
@@ -263,12 +279,33 @@ cleanup:
 static void update(size_t module_id) {
     struct pulse_storage *storage = (struct pulse_storage *)modules[module_id].data;
 
-    // 读取eventfd以清空通知
     uint64_t val;
     ssize_t s = read(storage->event_fd, &val, sizeof(val));
-    if (s != sizeof(val)) {
+    if (s == -1 && errno != EAGAIN) {
         perror("read eventfd");
-        return;
+    }
+
+    // 处理重连（pulse server 重启等）
+    if (storage->reconnect) {
+        storage->reconnect = 0;
+        int old_fd = storage->event_fd;
+        if (storage->mainloop) {
+            pa_context_disconnect(storage->context);
+            pa_threaded_mainloop_stop(storage->mainloop);
+            pa_threaded_mainloop_free(storage->mainloop);
+            storage->mainloop = NULL;
+            storage->context = NULL;
+        }
+        init_pulse_audio(storage);
+        if (storage->event_fd < 0) {
+            fprintf(stderr, "PulseAudio reconnect failed\n");
+            update_json(module_id, "N/A", CRITICAL);
+            return;
+        }
+        if (old_fd >= 0)
+            epoll_ctl(storage->epoll_fd, EPOLL_CTL_DEL, old_fd, NULL);
+        struct epoll_event ev = { .events = EPOLLIN, .data.u64 = module_id };
+        epoll_ctl(storage->epoll_fd, EPOLL_CTL_ADD, storage->event_fd, &ev);
     }
 
     // 格式化输出字符串
@@ -569,6 +606,7 @@ void init_pulse_output(int epoll_fd) {
 
     // 设置模块回调函数
     modules[module_id].data = storage;
+    storage->module_id = module_id;
     modules[module_id].update = update;
     modules[module_id].alter = alter;
     modules[module_id].del = del;
@@ -633,6 +671,7 @@ void init_pulse_input(int epoll_fd) {
 
     // 设置模块回调函数
     modules[module_id].data = storage;
+    storage->module_id = module_id;
     modules[module_id].update = update;
     modules[module_id].alter = alter;
     modules[module_id].del = del;
