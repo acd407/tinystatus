@@ -1,115 +1,87 @@
 # tinystatus
 
-`tinystatus` 是一个小巧的 `i3bar/swaybar` 的后端。
+`tinystatus` 是一个小巧的 `i3bar/swaybar/i3bar-river` 后端。
 
 <center><img src="res/img/effect.png" style="zoom:50%;" /></center>
 
-## 注意
+**Tips: 项目的代码并不多，十分建议在 AI 的辅助下阅读代码。**
 
-虽然本项目最初作为示例项目开发，但现在正逐步发展为实用工具。
-项目中已加入动态内容检测机制（如match_content_path和regex），
-以及使用PulseAudio默认设备替代硬编码的ALSA设备路径，
-使得配置更灵活，适配性更强。
-
-**尽管如此，某些模块仍可能需要根据具体硬件环境进行微调。**
-
-**Tips: 项目的代码并不多，十分建议在 ai 的辅助下阅读代码。**
-
-可以通过如下命令可以将项目转化为一个单文件，喂给 ai
-
+可以通过以下命令将项目转化为单文件，方便与 AI 分享：
 ```sh
 find src -type f -exec sh -c 'echo // file: {} && cat {}' \; >out.c
 ```
 
 ## 编译依赖
 
-本项目需要以下依赖库：
+```sh
+# Arch Linux
+sudo pacman -S base-devel dbus libpulse libnl glib2
 
-- `libcjson` - JSON处理
-- `libdbus-1` - D-Bus通信
-- `libpulse` - PulseAudio音频管理
-- `alsa` - ALSA音频支持
-- `libpthread` - POSIX线程支持
+# Debian/Ubuntu
+sudo apt install build-essential libdbus-1-dev libpulse-dev libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libglib2.0-dev
+```
 
-## 特点
+pkg-config 检测：
+- `dbus-1` — D-Bus 通信
+- `libpulse` — PulseAudio 音频管理
+- `libnl-3.0` `libnl-genl-3.0` `libnl-route-3.0` — netlink 内核接口通信
+- `glib-2.0` — 工具函数
 
-覆盖了大多数 [`i3status-rs`](https://github.com/greshake/i3status-rust) 的核心功能。
-如：
+## 架构
 
-- 实时响应输入（鼠标单击、滚轮滑动）
-- 实时监控文件
-- 实时监控 `dbus`
-- 实时监控 `ALSA`
+主循环基于 `epoll_wait`。所有模块注册到全局数组 `modules[MOD_SIZE]` 中，epoll 事件通过 `data.u64` 索引到对应模块调用其 `update` 方法。
 
-总的来说，由于项目采用 `epoll`，任何可以转换为文件描述符的资源都可以被异步监听。
-
-使用了面向对象的思想，所有模块在初始化时，
-将自己的所有信息注册到 `module_t modules[]` 中。
-随后有匹配 `module_id` 的事件时，由核心模块调用模块们对应的方法。
-
-## 新增功能说明
-
-最新版本引入了基于 PulseAudio 的音频管理模块 (`pulse.c`)，提供了以下增强功能：
-- 支持输出设备（扬声器/耳机）和输入设备（麦克风）的独立管理
-- 实时监听音频设备状态变化
-- 使用 PulseAudio API 替代 ALSA，提供更好的兼容性
-- 支持音量精确控制和静音切换
-- 提供更丰富的音频状态指示
-
-## 实现的模块
-
-### 核心模块
-
-- `main.c`：主文件，创建 `epoll` 实例，并监听所有 `init` 中注册的文件描述符。根据子模块注册 `epoll` 项时填入的 `module_id`，选择对应模块的 `update` 方法，来更新模块的 `output`。
-- `timer.c`：计时器，每秒激活一次，调用 `interval` 不为 0 的模块的 `update` 方法。
-- `stdin.c`：处理标准输入，如按键单击、鼠标滚轮事件。并根据输入 `json` 的 `name` 字段，调用对应模块的 `alter` 方法，改变模块状态。
+| 核心模块 | 功能 |
+|----------|------|
+| `main.c` | 创建 epoll 实例，根据 `module_id` 分派事件 |
+| `timer.c` | 每秒触发一次，调用 `interval != 0` 的模块 |
+| `stdin.c` | 解析 i3bar 点击事件 JSON，按 `name` 分派到 `alter` |
 
 ### 输出模块
 
-| 文件名        | 功能描述                              |
-| ------------- | ------------------------------------- |
-| `battery.c`   | 电量、百分比、预期放电/充满时间、功耗 |
-| `backlight.c` | 显示、调节 LCD 背光亮度               |
-| `pulse.c`     | 显示、调节音量大小及麦克风音量（基于PulseAudio） |
-| `network.c`   | 显示网速和有线/无线网络的链路信息     |
-| `memory.c`    | 内存使用率                            |
-| `cpu.c`       | 处理器使用率和功耗                    |
-| `temp.c`      | 处理器封装温度                        |
-| `date.c`      | 日期和时间                            |
+| 模块 | 功能 | 数据来源 |
+|------|------|----------|
+| `battery.c` | 电量、百分比、预估时间、功耗 | sysfs |
+| `backlight.c` | LCD 背光亮度 | sysfs |
+| `pulse.c` | 音量控制、静音切换（输出/输入设备） | PulseAudio async API + eventfd |
+| `network.c` | 网速、链路速率、无线信号 | **纯 netlink**（路由/链路/ethtool/nl80211） |
+| `memory.c` | 内存使用率 | sysfs |
+| `cpu.c` | CPU 使用率和功耗 | sysfs、msr |
+| `temp.c` | 温度 | sysfs |
+| `date.c` | 日期和时间 | time |
 
-## 新模块指引
+## 新增模块
 
-### 最小的模块
-
-一个最小的模块如下：
+### 最小模块
 
 ```c
-void init_xxx (int epoll_fd) {
-    (void) epoll_fd;
-    INIT_BASE; // 可视为构造函数
+void init_xxx(int epoll_fd) {
+    INIT_BASE;
+    // modules[module_id].update = update;
+    // modules[module_id].interval = 1;
+    // UPDATE_Q(module_id);
 }
 ```
 
-随后在 `modules.h` 中声明模块的初始化函数。
+随后在 `src/include/modules.h` 中声明，在 `src/main.c` 的 `init()` 中调用。
 
-最后在 `main.c` 中调用，如：
+### 功能扩展
 
-```c
-init_xxx (epoll_fd);
-```
-
-### 更多功能
-
-如果想为模块增加功能，请参考 `main.h` 中的 `module_t`，这里定义了模块的数据和方法：
+参考 `main.h` 中的 `module_t`：
 
 ```c
 typedef struct {
-    char *output;      // 模块输出，各模块输出由全局的output函数统一收集输出
-    uint64_t interval; // 确定模块更新的时间间隔，0表示不随时间更新
-    uint64_t state;    // 模块的状态，用于可以改变状态的模块，如支持右键单击
-    void (*alter) (size_t, uint64_t); // 改变模块状态时的回调函数
-    void (*update) (size_t);          // 更新模块状态时的回调函数
-    void (*del) (size_t);             // 析构函数
-    void *data;                       // 模块内部数据，指向各模块自定义的结构体
+    char *output;      // 模块输出（由 update_json 管理）
+    uint64_t interval; // 更新间隔（秒），0 表示不随定时器更新
+    uint64_t state;    // 模块状态，alter 中切换
+    void (*alter)(size_t, uint64_t);   // 鼠标点击回调
+    void (*update)(size_t);            // 更新回调（timer 或 epoll 触发）
+    void (*del)(size_t);               // 退出清理
+    void *data;                        // 模块私有数据
 } module_t;
 ```
+
+- **定时更新**：设置 `interval = 1`，timer 每秒调用 `update`
+- **epoll 监听**：`init` 中 `epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &(struct epoll_event){.events = EPOLLIN, .data.u64 = module_id})`
+- **点击响应**：设置 `alter`，`stdin.c` 根据 `name` 字段首字母查模块索引后调用
+- **数据优先走 netlink**：如果获取内核数据，优先使用 `libnl-*` 而非 procfs/sysfs
