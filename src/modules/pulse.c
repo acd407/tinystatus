@@ -42,12 +42,6 @@ struct pulse_storage {
 // 初始化PulseAudio连接（前向声明）
 int init_pulse_audio(struct pulse_storage *storage);
 
-// 用于alter操作的结构体
-struct pulse_alter_data {
-    struct pulse_storage *storage;
-    int operation_type; // 0: mute toggle, 1: volume up, 2: volume down
-};
-
 // 回调函数：获取服务器信息（用于获取默认输出/输入设备名称）
 void get_server_info_callback(pa_context *c, const pa_server_info *i, void *userdata) {
     if (!i) {
@@ -342,182 +336,28 @@ static void update(size_t module_id) {
     }
 }
 
-// 静音操作回调
-void set_sink_mute_callback(pa_context *c, int success, void *userdata) {
-    (void)c;
-    struct pulse_alter_data *alter_data = (struct pulse_alter_data *)userdata;
-    if (!success) {
-        fprintf(stderr, "Failed to mute/unmute sink\n");
-    }
-    // 触发一次更新以反映新状态
-    struct pulse_storage *storage = alter_data->storage;
-    uint64_t val = 1;
-    write(storage->event_fd, &val, sizeof(val));
-
-    // 现在可以安全地释放alter_data了
-    free(alter_data);
-}
-
-// 音量设置回调
-void set_sink_volume_callback(pa_context *c, int success, void *userdata) {
-    (void)c;
-    struct pulse_alter_data *alter_data = (struct pulse_alter_data *)userdata;
-    if (!success) {
-        fprintf(stderr, "Failed to set sink volume\n");
-    }
-    // 触发一次更新以反映新状态
-    struct pulse_storage *storage = alter_data->storage;
-    uint64_t val = 1;
-    write(storage->event_fd, &val, sizeof(val));
-
-    // 现在可以安全地释放alter_data了
-    free(alter_data);
-}
-
-// 静音操作回调 - 输入设备
-void set_source_mute_callback(pa_context *c, int success, void *userdata) {
-    (void)c;
-    struct pulse_alter_data *alter_data = (struct pulse_alter_data *)userdata;
-    if (!success) {
-        fprintf(stderr, "Failed to mute/unmute source\n");
-    }
-    // 触发一次更新以反映新状态
-    struct pulse_storage *storage = alter_data->storage;
-    uint64_t val = 1;
-    write(storage->event_fd, &val, sizeof(val));
-
-    // 现在可以安全地释放alter_data了
-    free(alter_data);
-}
-
-// 音量设置回调 - 输入设备
-void set_source_volume_callback(pa_context *c, int success, void *userdata) {
-    (void)c;
-    struct pulse_alter_data *alter_data = (struct pulse_alter_data *)userdata;
-    if (!success) {
-        fprintf(stderr, "Failed to set source volume\n");
-    }
-    // 触发一次更新以反映新状态
-    struct pulse_storage *storage = alter_data->storage;
-    uint64_t val = 1;
-    write(storage->event_fd, &val, sizeof(val));
-
-    // 现在可以安全地释放alter_data了
-    free(alter_data);
-}
-
-// 获取当前音量信息的回调，用于修改操作 - 输出设备
-void get_current_sink_info_for_change(pa_context *c, const pa_sink_info *i, int eol, void *userdata) {
-    if (eol > 0)
-        return;
-    if (!i)
-        return;
-
-    struct pulse_alter_data *alter_data = (struct pulse_alter_data *)userdata;
-    struct pulse_storage *storage = alter_data->storage;
-
-    switch (alter_data->operation_type) {
-    case 0: // mute toggle
-    {
-        pa_context_set_sink_mute_by_name(c, storage->sink_name, !i->mute, set_sink_mute_callback, alter_data);
-        break;
-    }
-    case 1: // volume up
-    {
-        pa_cvolume cvol = i->volume;
-        // 将当前音量转换为百分比并四舍五入到5的倍数
-        int current_percent = (int)(pa_cvolume_avg(&cvol) * 100.0 / PA_VOLUME_NORM);
-        int rounded_current = ((current_percent + 2) / 5) * 5; // 四舍五入到5的倍数
-        int new_percent = rounded_current + 5;                 // 增加5%
-
-        // 限制最大音量不超过150%
-        if (new_percent > 150) {
-            new_percent = 150;
-        }
-
-        pa_volume_t new_volume = (pa_volume_t)(new_percent * PA_VOLUME_NORM / 100.0);
-        pa_cvolume_set(&cvol, cvol.channels, new_volume);
-        pa_context_set_sink_volume_by_name(c, storage->sink_name, &cvol, set_sink_volume_callback, alter_data);
-        break;
-    }
-    case 2: // volume down
-    {
-        pa_cvolume cvol = i->volume;
-        // 将当前音量转换为百分比并四舍五入到5的倍数
-        int current_percent = (int)(pa_cvolume_avg(&cvol) * 100.0 / PA_VOLUME_NORM);
-        int rounded_current = ((current_percent + 2) / 5) * 5; // 四舍五入到5的倍数
-        int new_percent = rounded_current - 5;                 // 减少5%
-
-        // 音量不能低于0
-        if (new_percent < 0) {
-            new_percent = 0;
-        }
-
-        pa_volume_t new_volume = (pa_volume_t)(new_percent * PA_VOLUME_NORM / 100.0);
-        pa_cvolume_set(&cvol, cvol.channels, new_volume);
-        pa_context_set_sink_volume_by_name(c, storage->sink_name, &cvol, set_sink_volume_callback, alter_data);
-        break;
-    }
-    }
-}
-
-// 获取当前音量信息的回调，用于修改操作 - 输入设备
-void get_current_source_info_for_change(pa_context *c, const pa_source_info *i, int eol, void *userdata) {
-    if (eol > 0)
-        return;
-    if (!i)
-        return;
-
-    struct pulse_alter_data *alter_data = (struct pulse_alter_data *)userdata;
-    struct pulse_storage *storage = alter_data->storage;
-
-    // 输入设备只处理静音切换，忽略音量调节请求
-    if (alter_data->operation_type == 0) { // mute toggle
-        pa_context_set_source_mute_by_name(c, storage->source_name, !i->mute, set_source_mute_callback, alter_data);
-    }
-}
-
-// 修改音量的函数（响应鼠标点击）- 统一处理输出和输入设备
+// 修改音量的函数（响应鼠标点击）- 输出和输入设备
 static void alter(size_t module_id, uint64_t btn) {
     struct pulse_storage *storage = (struct pulse_storage *)modules[module_id].data;
 
     switch (btn) {
-    case 2: // middle button - 打开音量控制
-        if (storage->device_type == DEVICE_TYPE_INPUT) {
-            system("pwvucontrol -t 3 &"); // 打开麦克风标签页
-        } else {
-            system("pwvucontrol &"); // 打开音量控制
-        }
+    case 2:
+        system(storage->device_type == DEVICE_TYPE_INPUT ? "pwvucontrol -t 3 &" : "pwvucontrol &");
         break;
-    case 3: // right button - 切换静音
-    case 4: // wheel up - 增加音量
-    case 5: // wheel down - 减少音量
-        if (storage->context) {
-            // 创建alter数据结构
-            struct pulse_alter_data *alter_data = malloc(sizeof(struct pulse_alter_data));
-            if (!alter_data) {
-                perror("malloc");
-                return;
-            }
-            alter_data->storage = storage;
-
-            // 根据按钮设置操作类型
-            alter_data->operation_type = btn - 3;
-
-            if (storage->device_type == DEVICE_TYPE_INPUT && storage->source_name) {
-                pa_operation *op = pa_context_get_source_info_by_name(
-                    storage->context, storage->source_name, get_current_source_info_for_change, alter_data
-                );
-                if (op)
-                    pa_operation_unref(op);
-            } else if (storage->device_type == DEVICE_TYPE_OUTPUT && storage->sink_name) {
-                pa_operation *op = pa_context_get_sink_info_by_name(
-                    storage->context, storage->sink_name, get_current_sink_info_for_change, alter_data
-                );
-                if (op)
-                    pa_operation_unref(op);
-            }
-        }
+    case 3:
+        system(storage->device_type == DEVICE_TYPE_INPUT
+            ? "pactl set-source-mute @DEFAULT_SOURCE@ toggle"
+            : "pactl set-sink-mute @DEFAULT_SINK@ toggle");
+        break;
+    case 4:
+        system(storage->device_type == DEVICE_TYPE_INPUT
+            ? "pactl set-source-volume @DEFAULT_SOURCE@ +5%"
+            : "pactl set-sink-volume @DEFAULT_SINK@ +5%");
+        break;
+    case 5:
+        system(storage->device_type == DEVICE_TYPE_INPUT
+            ? "pactl set-source-volume @DEFAULT_SOURCE@ -5%"
+            : "pactl set-sink-volume @DEFAULT_SINK@ -5%");
         break;
     }
 }
