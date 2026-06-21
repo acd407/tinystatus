@@ -15,17 +15,16 @@ find src -type f -exec sh -c 'echo // file: {} && cat {}' \; >out.c
 
 ```sh
 # Arch Linux
-sudo pacman -S base-devel dbus libpulse libnl glib2
+sudo pacman -S base-devel dbus libpulse libnl
 
 # Debian/Ubuntu
-sudo apt install build-essential libdbus-1-dev libpulse-dev libnl-3-dev libnl-genl-3-dev libnl-route-3-dev libglib2.0-dev
+sudo apt install build-essential libdbus-1-dev libpulse-dev libnl-3-dev libnl-genl-3-dev libnl-route-3-dev
 ```
 
 pkg-config 检测：
 - `dbus-1` — D-Bus 通信
 - `libpulse` — PulseAudio 音频管理
 - `libnl-3.0` `libnl-genl-3.0` `libnl-route-3.0` — netlink 内核接口通信
-- `glib-2.0` — 工具函数
 
 ## 架构
 

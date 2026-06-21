@@ -10,7 +10,7 @@ make clean        # 清理
 DEBUG=1 make      # 开启 AddressSanitizer 调试模式
 ```
 
-依赖: `libcjson`, `dbus-1`, `libpulse`, `libnl-3.0`, `libnl-genl-3.0`, `libnl-route-3.0`, `glib-2.0` (通过 pkg-config 检测)。
+依赖: `dbus-1`, `libpulse`, `libnl-3.0`, `libnl-genl-3.0`, `libnl-route-3.0` (通过 pkg-config 检测)。
 
 ## 架构概述
 
