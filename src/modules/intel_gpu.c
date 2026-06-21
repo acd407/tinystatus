@@ -17,15 +17,15 @@
 
 // 存储GPU状态和进程信息
 struct intel_gpu_storage {
-    pid_t gpu_usage_pid;   // GPU使用率工具进程ID
-    pid_t vram_pid;        // 显存工具进程ID
-    int gpu_usage_fd;      // GPU使用率管道读端
-    int vram_fd;           // 显存使用管道读端
-    double gpu_usage;      // 当前GPU使用率
-    uint64_t vram_usage;   // 当前显存使用量
-    int gpu_usage_ready;   // GPU使用率是否已准备好
-    int vram_ready;        // 显存使用量是否已准备好
-    int epoll_fd;          // 保存 epoll_fd，供 del() 移除 fd
+    pid_t gpu_usage_pid; // GPU使用率工具进程ID
+    pid_t vram_pid;      // 显存工具进程ID
+    int gpu_usage_fd;    // GPU使用率管道读端
+    int vram_fd;         // 显存使用管道读端
+    double gpu_usage;    // 当前GPU使用率
+    uint64_t vram_usage; // 当前显存使用量
+    int gpu_usage_ready; // GPU使用率是否已准备好
+    int vram_ready;      // 显存使用量是否已准备好
+    int epoll_fd;        // 保存 epoll_fd，供 del() 移除 fd
 };
 
 // 启动工具进程并创建管道：pipe() → fork() → child dup2 + exec → parent close(write)
@@ -48,9 +48,9 @@ static int spawn_tool(const char *tool_path, pid_t *pid, int *read_fd) {
 
     if (child == 0) {
         // ── 子进程 ──
-        close(pipe_fd[0]);                     // 关闭读端
-        dup2(pipe_fd[1], STDOUT_FILENO);       // stdout → pipe 写端
-        close(pipe_fd[1]);                     // 关闭原始写端（dup2 后的副本已够用）
+        close(pipe_fd[0]);               // 关闭读端
+        dup2(pipe_fd[1], STDOUT_FILENO); // stdout → pipe 写端
+        close(pipe_fd[1]);               // 关闭原始写端（dup2 后的副本已够用）
 
         // 子进程不需要继承 epoll fd 等多余的 fd，但保持简单 — exec 后全部消失
         execl(tool_path, tool_path, NULL);
@@ -59,7 +59,7 @@ static int spawn_tool(const char *tool_path, pid_t *pid, int *read_fd) {
     }
 
     // ── 父进程 ──
-    close(pipe_fd[1]);        // 关闭写端
+    close(pipe_fd[1]); // 关闭写端
     *pid = child;
     *read_fd = pipe_fd[0];
     return 0;
@@ -120,7 +120,7 @@ static void update(size_t module_id) {
         return;
     }
 
-    char output_str[32] = "󰍹\u2004";
+    char output_str[32] = "󰍹" SEP "";
     double usage = storage->gpu_usage;
 
     if (modules[module_id].state && storage->vram_ready) {
@@ -193,7 +193,7 @@ static void del(size_t module_id) {
 
 // 向 epoll 注册一个管道读端（边缘触发）
 static int register_epoll_fd(int epoll_fd, int fd, uint64_t module_id) {
-    struct epoll_event ev = { .events = EPOLLIN | EPOLLET, .data.u64 = module_id };
+    struct epoll_event ev = {.events = EPOLLIN | EPOLLET, .data.u64 = module_id};
     return epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 }
 

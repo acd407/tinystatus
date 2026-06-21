@@ -40,9 +40,9 @@ static void update(size_t module_id) {
     };
     size_t idx = ARRAY_SIZE(icons) * brightness_percent / 101;
 
-    char output_str[] = "\u2004100%";
+    char output_str[] = "" SEP "100%";
     snprintf(
-        output_str, sizeof(output_str), "%s\u2004%*ld%%", icons[idx], brightness_percent == 100 ? 3 : 2,
+        output_str, sizeof(output_str), "%s" SEP "%*ld%%", icons[idx], brightness_percent == 100 ? 3 : 2,
         brightness_percent
     );
 

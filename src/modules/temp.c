@@ -12,7 +12,7 @@
 #define PACKAGE "/sys/class/hwmon/hwmon1/temp1_input"
 
 static void update(size_t module_id) {
-    char output_str[] = "ico\u200435.3";
+    char output_str[] = "ico" SEP "35.3";
 
     // 从模块数据中获取PACKAGE路径
     char *package_path = (char *)modules[module_id].data;
@@ -28,7 +28,7 @@ static void update(size_t module_id) {
     };
     size_t icon_idx = ARRAY_SIZE(icons) * (max(0, temp - 40)) / 61;
     icon_idx = min(icon_idx, ARRAY_SIZE(icons) - 1);
-    snprintf(output_str, sizeof(output_str), "%s\u2004%3.*f", icons[icon_idx], temp < 10 ? 2 : 1, temp);
+    snprintf(output_str, sizeof(output_str), "%s" SEP "%3.*f", icons[icon_idx], temp < 10 ? 2 : 1, temp);
 
     char *colors[] = {COOL, IDLE, WARNING, CRITICAL};
     if (temp < 30)

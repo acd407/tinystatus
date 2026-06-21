@@ -11,7 +11,7 @@ static void update(size_t module_id) {
     time(&raw_time);                             // 获取当前时间戳
     struct tm *time_info = localtime(&raw_time); // 转换为本地时间
     char output_str[80];
-    strftime(output_str, sizeof(output_str), "%a\u2004%m/%d\u2004%H:%M:%S", time_info);
+    strftime(output_str, sizeof(output_str), "%a" SEP "%m/%d" SEP "%H:%M:%S", time_info);
 
     update_json(module_id, output_str);
 }

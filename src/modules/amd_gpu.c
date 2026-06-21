@@ -22,13 +22,13 @@ static void alter(size_t module_id, uint64_t btn) {
 }
 
 static void update(size_t module_id) {
-    char output_str[] = "󰍹\u2004\0.00G";
+    char output_str[] = "󰍹" SEP "\0.00G";
 
     uint64_t usage = read_uint64_file(GPU_USAGE);
     if (modules[module_id].state) {
         format_storage_units((char (*)[6])(output_str + strlen(output_str)), read_uint64_file(VRAM_USED));
     } else {
-        snprintf(output_str + 4, sizeof(output_str) - 4, "\u2004%*ld%%", usage < 100 ? 2 : 3, usage);
+        snprintf(output_str + 4, sizeof(output_str) - 4, SEP "%*ld%%", usage < 100 ? 2 : 3, usage);
     }
 
     char *colors[] = {IDLE, WARNING, CRITICAL};

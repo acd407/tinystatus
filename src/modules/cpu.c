@@ -108,8 +108,8 @@ static void alter(size_t module_id, uint64_t btn) {
 static void update(size_t module_id) {
     const char *icons[] = {"󰾆", "󰾅", "󰓅"};
     const char *colors[] = {IDLE, WARNING, CRITICAL};
-    const char *format_active = "\u2004%4.*fW";
-    const char *format_inactive = "\u2004%4.*f%%";
+    const char *format_active = SEP "%4.*fW";
+    const char *format_inactive = SEP "%4.*f%%";
 
     double usage = get_usage(module_id);
     bool is_active = modules[module_id].state;

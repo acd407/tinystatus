@@ -37,7 +37,7 @@ static void get_usage(uint64_t *used, double *percent) {
 }
 
 static void update(size_t module_id) {
-    char output_str[] = "󰍛\u2004\0.00K";
+    char output_str[] = "󰍛" SEP "\0.00K";
     uint64_t used;
     double usage;
     get_usage(&used, &usage);

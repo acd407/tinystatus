@@ -11,6 +11,9 @@
 #define WARNING "#FED06E"
 #define CRITICAL "#F75341"
 
+// 图标与数据之间的分隔符（窄空格）
+#define SEP "\u2004"
+
 #define INIT_BASE                                                                                                      \
     size_t module_id = modules_cnt++;                                                                                  \
     modules[module_id].update = NULL;                                                                                  \

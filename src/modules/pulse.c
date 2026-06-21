@@ -25,7 +25,7 @@ void get_server_info_callback(pa_context *c, const pa_server_info *i, void *user
 struct pulse_storage {
     int event_fd;
     int epoll_fd;
-    size_t module_id;           // 用于重连时重新注册 epoll
+    size_t module_id; // 用于重连时重新注册 epoll
     pthread_t thread_id;
     pa_threaded_mainloop *mainloop;
     pa_context *context;
@@ -36,7 +36,7 @@ struct pulse_storage {
     pa_volume_t volume;
     int muted;
     device_type_t device_type; // 设备类型
-    int reconnect;              // 标记需重连，由回调设置、update 处理
+    int reconnect;             // 标记需重连，由回调设置、update 处理
 };
 
 // 初始化PulseAudio连接（前向声明）
@@ -298,7 +298,7 @@ static void update(size_t module_id) {
         }
         if (old_fd >= 0)
             epoll_ctl(storage->epoll_fd, EPOLL_CTL_DEL, old_fd, NULL);
-        struct epoll_event ev = { .events = EPOLLIN, .data.u64 = module_id };
+        struct epoll_event ev = {.events = EPOLLIN, .data.u64 = module_id};
         epoll_ctl(storage->epoll_fd, EPOLL_CTL_ADD, storage->event_fd, &ev);
     }
 
@@ -324,13 +324,13 @@ static void update(size_t module_id) {
             snprintf(output_str, sizeof(output_str), "󰸈");
             update_json(module_id, output_str, WARNING);
         } else if (display_percent < 34) {
-            snprintf(output_str, sizeof(output_str), "󰕿\u2004%d%%", display_percent);
+            snprintf(output_str, sizeof(output_str), "󰕿" SEP "%d%%", display_percent);
             update_json(module_id, output_str);
         } else if (display_percent < 67) {
-            snprintf(output_str, sizeof(output_str), "󰖀\u2004%d%%", display_percent);
+            snprintf(output_str, sizeof(output_str), "󰖀" SEP "%d%%", display_percent);
             update_json(module_id, output_str);
         } else {
-            snprintf(output_str, sizeof(output_str), "󰕾\u2004%d%%", display_percent);
+            snprintf(output_str, sizeof(output_str), "󰕾" SEP "%d%%", display_percent);
             update_json(module_id, output_str);
         }
     }
@@ -345,19 +345,22 @@ static void alter(size_t module_id, uint64_t btn) {
         system(storage->device_type == DEVICE_TYPE_INPUT ? "pwvucontrol -t 3 &" : "pwvucontrol &");
         break;
     case 3:
-        system(storage->device_type == DEVICE_TYPE_INPUT
-            ? "pactl set-source-mute @DEFAULT_SOURCE@ toggle"
-            : "pactl set-sink-mute @DEFAULT_SINK@ toggle");
+        system(
+            storage->device_type == DEVICE_TYPE_INPUT ? "pactl set-source-mute @DEFAULT_SOURCE@ toggle"
+                                                      : "pactl set-sink-mute @DEFAULT_SINK@ toggle"
+        );
         break;
     case 4:
-        system(storage->device_type == DEVICE_TYPE_INPUT
-            ? "pactl set-source-volume @DEFAULT_SOURCE@ +5%"
-            : "pactl set-sink-volume @DEFAULT_SINK@ +5%");
+        system(
+            storage->device_type == DEVICE_TYPE_INPUT ? "pactl set-source-volume @DEFAULT_SOURCE@ +5%"
+                                                      : "pactl set-sink-volume @DEFAULT_SINK@ +5%"
+        );
         break;
     case 5:
-        system(storage->device_type == DEVICE_TYPE_INPUT
-            ? "pactl set-source-volume @DEFAULT_SOURCE@ -5%"
-            : "pactl set-sink-volume @DEFAULT_SINK@ -5%");
+        system(
+            storage->device_type == DEVICE_TYPE_INPUT ? "pactl set-source-volume @DEFAULT_SOURCE@ -5%"
+                                                      : "pactl set-sink-volume @DEFAULT_SINK@ -5%"
+        );
         break;
     }
 }

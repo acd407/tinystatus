@@ -151,24 +151,23 @@ static void update(size_t module_id) {
     // 输出文字
     if (modules[module_id].state) {
         output_p += snprintf(
-            output_p, sizeof(output_str) - (output_p - output_str), "\u2004<span color='%s'>%.1fWh</span>",
+            output_p, sizeof(output_str) - (output_p - output_str), SEP "<span color='%s'>%.1fWh</span>",
             colors[colors_idx], energy
         );
         if (time2ef > 0) {
-            output_p += snprintf(output_p, sizeof(output_str) - (output_p - output_str), "\u2004(%.1fW)", energy_rate);
+            output_p += snprintf(output_p, sizeof(output_str) - (output_p - output_str), SEP "(%.1fW)", energy_rate);
         }
     } else {
         output_p += snprintf(
-            output_p, sizeof(output_str) - (output_p - output_str), "\u2004<span color='%s'>%ld%%</span>",
+            output_p, sizeof(output_str) - (output_p - output_str), SEP "<span color='%s'>%ld%%</span>",
             colors[colors_idx], percentage
         );
         if (time2ef > 0) {
             uint64_t hours = time2ef / 3600;
             uint64_t minutes = (time2ef - hours * 3600) / 60;
             if (state == DISCHARGING || hours < 5)
-                output_p += snprintf(
-                    output_p, sizeof(output_str) - (output_p - output_str), "\u2004(%ld:%02ld)", hours, minutes
-                );
+                output_p +=
+                    snprintf(output_p, sizeof(output_str) - (output_p - output_str), SEP "(%ld:%02ld)", hours, minutes);
         }
     }
 
