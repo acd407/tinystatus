@@ -42,7 +42,7 @@ static void init(int epoll_fd) { // 注册的顺序，决定输出的顺序
     init_intel_gpu(epoll_fd);
     init_memory(epoll_fd);
     init_cpu(epoll_fd);
-    modules[modules_cnt - 1].state ^= 1;
+    modules[modules_cnt - 1].state ^= 1; // 第二个 CPU 实例初始 state=1，显示功耗
     init_cpu(epoll_fd);
     init_temp(epoll_fd);
     init_date(epoll_fd);

@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <math.h>
@@ -55,6 +56,18 @@ uint64_t read_uint64_file(char *file) {
     }
     fclose(file_soc);
     return ans;
+}
+
+void set_nonblocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1) {
+        perror("fcntl F_GETFL");
+        exit(EXIT_FAILURE);
+    }
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        perror("fcntl F_SETFL");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void _update_json(size_t module_id, const char *output_str, ...) {

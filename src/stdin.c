@@ -7,24 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <tools.h>
 #include <unistd.h>
 
 struct stdin_data {
     int fd;
 };
-
-// 设置非阻塞 IO
-static void set_nonblocking(int fd) {
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        perror("fcntl F_GETFL");
-        exit(EXIT_FAILURE);
-    }
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        perror("fcntl F_SETFL");
-        exit(EXIT_FAILURE);
-    }
-}
 
 static void update(size_t module_id) {
     char input[BUF_SIZE];

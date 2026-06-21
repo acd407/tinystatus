@@ -9,6 +9,7 @@
 #define max(x, y) ((x) > (y) ? (x) : (y))
 #define min(x, y) ((x) > (y) ? (y) : (x))
 
+void set_nonblocking(int fd);
 void format_storage_units(char (*buf)[6], double bytes);
 uint64_t read_uint64_file(char *file);
 

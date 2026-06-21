@@ -28,19 +28,23 @@ static int create_timer() {
     return timer_fd;
 }
 
+struct timer_data {
+    int timerfd;
+    int counter;
+};
+
 static void update(size_t module_id) {
-    int *counter = &((int *)modules[module_id].data)[1];
-    int timerfd = ((int *)modules[module_id].data)[0];
+    struct timer_data *td = modules[module_id].data;
     uint64_t expirations;
-    ssize_t s = read(timerfd, &expirations, sizeof(uint64_t));
-    if (*counter > 0 && s == -1) {
+    ssize_t s = read(td->timerfd, &expirations, sizeof(uint64_t));
+    if (td->counter > 0 && s == -1) {
         perror("read timerfd");
         exit(EXIT_FAILURE);
     }
-    *counter += s == -1 ? 0 : expirations;
+    td->counter += s == -1 ? 0 : expirations;
 
     for (size_t i = 0; i < modules_cnt; i++)
-        if (modules[i].interval && *counter % modules[i].interval == 0)
+        if (modules[i].interval && td->counter % modules[i].interval == 0)
             modules[i].update(i);
 }
 
@@ -58,9 +62,10 @@ void init_timer(int epoll_fd) {
         exit(EXIT_FAILURE);
     }
 
-    modules[module_id].data = malloc(sizeof(int) * 2);
-    ((int *)modules[module_id].data)[0] = timer_fd;
-    ((int *)modules[module_id].data)[1] = 0;
+    struct timer_data *td = malloc(sizeof(struct timer_data));
+    td->timerfd = timer_fd;
+    td->counter = 0;
+    modules[module_id].data = td;
     modules[module_id].update = update;
 
     UPDATE_Q(module_id);

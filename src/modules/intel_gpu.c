@@ -191,14 +191,6 @@ static void del(size_t module_id) {
     free(storage);
 }
 
-// 设置 fd 为非阻塞模式
-static int set_nonblocking(int fd) {
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1)
-        return -1;
-    return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
-
 // 向 epoll 注册一个管道读端（边缘触发）
 static int register_epoll_fd(int epoll_fd, int fd, uint64_t module_id) {
     struct epoll_event ev = { .events = EPOLLIN | EPOLLET, .data.u64 = module_id };
