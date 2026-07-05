@@ -129,7 +129,7 @@ static void update(size_t module_id) {
         strcat(output_str, vram_str);
     } else {
         const char *format_inactive = "%4.*f%%";
-        int precision = usage < 10 ? 2 : 1;
+        int precision = usage < 9.995 ? 2 : 1;
         snprintf(
             output_str + strlen(output_str), sizeof(output_str) - strlen(output_str), format_inactive, precision, usage
         );

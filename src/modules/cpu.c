@@ -128,9 +128,9 @@ static void update(size_t module_id) {
 
     if (is_active) {
         double power = get_power(module_id);
-        snprintf(output_str + icon_len, sizeof(output_str) - icon_len, format_active, power < 10 ? 2 : 1, power);
+        snprintf(output_str + icon_len, sizeof(output_str) - icon_len, format_active, power < 9.995 ? 2 : 1, power);
     } else {
-        snprintf(output_str + icon_len, sizeof(output_str) - icon_len, format_inactive, usage < 10 ? 2 : 1, usage);
+        snprintf(output_str + icon_len, sizeof(output_str) - icon_len, format_inactive, usage < 9.995 ? 2 : 1, usage);
     }
 
     update_json(module_id, output_str, color);
