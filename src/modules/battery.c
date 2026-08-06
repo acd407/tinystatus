@@ -22,7 +22,7 @@ typedef struct {
     char *ac_online_path;
 } battery_data_t;
 
-static void dbus_get_property(
+static bool dbus_get_property(
     DBusConnection *conn, const char *device_path, const char *property_name, int expected_type, void *value
 ) {
     DBusError err;
@@ -31,7 +31,7 @@ static void dbus_get_property(
     DBusMessage *msg =
         dbus_message_new_method_call(UPOWER_SERVICE, device_path, "org.freedesktop.DBus.Properties", "Get");
     if (msg == NULL) {
-        exit(EXIT_FAILURE);
+        return false;
     }
 
     const char *interface = DEVICE_INTERFACE;
@@ -39,9 +39,9 @@ static void dbus_get_property(
 
     DBusMessage *reply = dbus_connection_send_with_reply_and_block(conn, msg, -1, &err);
     dbus_message_unref(msg);
-    if (dbus_error_is_set(&err)) {
+    if (reply == NULL || dbus_error_is_set(&err)) {
         dbus_error_free(&err);
-        exit(EXIT_FAILURE);
+        return false;
     }
 
     DBusMessageIter iter, variant;
@@ -51,16 +51,17 @@ static void dbus_get_property(
     int type = dbus_message_iter_get_arg_type(&variant);
     if (type != expected_type) {
         dbus_message_unref(reply);
-        exit(EXIT_FAILURE);
+        return false;
     }
 
     dbus_message_iter_get_basic(&variant, value);
     dbus_message_unref(reply);
+    return true;
 }
 
 typedef enum { UNKNOWN, CHARGING, DISCHARGING, EMPTY, FULLY_CHARGED, PENDING_CHARGE, PENDING_DISCHARGE, LAST } State;
 
-static void get_battery_property(
+static bool get_battery_property(
     uint64_t module_id, State *state, double *percentage, int64_t *time, double *energy, double *energy_rate,
     bool *is_charging
 ) {
@@ -68,10 +69,18 @@ static void get_battery_property(
     DBusConnection *conn = data->conn;
     dbus_connection_read_write(conn, 0);
 
-    dbus_get_property(conn, BATTERY, "State", DBUS_TYPE_UINT32, state);
-    dbus_get_property(conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, energy);
-    dbus_get_property(conn, BATTERY, "Percentage", DBUS_TYPE_DOUBLE, percentage);
-    dbus_get_property(conn, BATTERY, "EnergyRate", DBUS_TYPE_DOUBLE, energy_rate);
+    if (!dbus_get_property(conn, BATTERY, "State", DBUS_TYPE_UINT32, state)) {
+        return false;
+    }
+    if (!dbus_get_property(conn, BATTERY, "Energy", DBUS_TYPE_DOUBLE, energy)) {
+        return false;
+    }
+    if (!dbus_get_property(conn, BATTERY, "Percentage", DBUS_TYPE_DOUBLE, percentage)) {
+        return false;
+    }
+    if (!dbus_get_property(conn, BATTERY, "EnergyRate", DBUS_TYPE_DOUBLE, energy_rate)) {
+        return false;
+    }
 
     // 检查AC电源是否在线
     if (is_charging != NULL && data->ac_online_path != NULL) {
@@ -81,10 +90,14 @@ static void get_battery_property(
 
     switch (*state) {
     case CHARGING:
-        dbus_get_property(conn, BATTERY, "TimeToFull", DBUS_TYPE_INT64, time);
+        if (!dbus_get_property(conn, BATTERY, "TimeToFull", DBUS_TYPE_INT64, time)) {
+            return false;
+        }
         break;
     case DISCHARGING:
-        dbus_get_property(conn, BATTERY, "TimeToEmpty", DBUS_TYPE_INT64, time);
+        if (!dbus_get_property(conn, BATTERY, "TimeToEmpty", DBUS_TYPE_INT64, time)) {
+            return false;
+        }
         break;
     default:
         break;
@@ -95,6 +108,8 @@ static void get_battery_property(
     while ((msg = dbus_connection_pop_message(conn)) != NULL) {
         dbus_message_unref(msg);
     }
+
+    return true;
 }
 
 static void update(size_t module_id) {
@@ -103,11 +118,18 @@ static void update(size_t module_id) {
     int64_t time2ef = -1; // time to Empty/Full
     bool is_charging = false;
 
-    get_battery_property(module_id, &state, &percentage_float, &time2ef, &energy, &energy_rate, &is_charging);
+    // 本次刷新未返回有效电量时，忽略该次更新，保持上次显示
+    if (!get_battery_property(module_id, &state, &percentage_float, &time2ef, &energy, &energy_rate, &is_charging)) {
+        return;
+    }
+    // UPower 偶发上报 0% 但电池并非空的场景，同样忽略
+    if (percentage_float == 0 && state != EMPTY) {
+        return;
+    }
 
-    // 如果AC在线，则强制设置为充电状态
-    if (is_charging) {
-        state = CHARGING;
+    // 信任 UPower 上报的真实充放状态；仅当状态不明或挂起时，才用 AC 在线状态兜底判断
+    if (state == UNKNOWN || state == PENDING_CHARGE || state == PENDING_DISCHARGE) {
+        state = is_charging ? CHARGING : DISCHARGING;
     }
 
     uint64_t percentage = percentage_float;
@@ -165,7 +187,7 @@ static void update(size_t module_id) {
         if (time2ef > 0) {
             uint64_t hours = time2ef / 3600;
             uint64_t minutes = (time2ef - hours * 3600) / 60;
-            if (state == DISCHARGING || hours < 5)
+            if (hours < (state == DISCHARGING ? 24 : 5))
                 output_p +=
                     snprintf(output_p, sizeof(output_str) - (output_p - output_str), SEP "(%ld:%02ld)", hours, minutes);
         }
