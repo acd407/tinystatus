@@ -8,6 +8,7 @@
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
 #include <pulse/pulseaudio.h>
+#include <math.h>
 
 // 设备类型枚举
 typedef enum { DEVICE_TYPE_OUTPUT = 0, DEVICE_TYPE_INPUT = 1 } device_type_t;
@@ -316,9 +317,9 @@ static void update(size_t module_id) {
         }
     } else {
         // 输出设备（扬声器/耳机）显示
-        float volume_percent = (float)storage->volume / PA_VOLUME_NORM * 100.0f;
-        // 对显示的音量进行标准化，四舍五入到5的倍数
-        int display_percent = ((int)(volume_percent + 2.5) / 5) * 5; // 四舍五入到5的倍数
+        int display_percent =
+            storage->volume ? (int)(100.0 + 100.0 * log10((double)storage->volume / PA_VOLUME_NORM) + 0.5) : 0;
+        display_percent = max(display_percent, 0);
 
         if (storage->muted) {
             snprintf(output_str, sizeof(output_str), "󰸈");
@@ -339,6 +340,9 @@ static void update(size_t module_id) {
 // 修改音量的函数（响应鼠标点击）- 输出和输入设备
 static void alter(size_t module_id, uint64_t btn) {
     struct pulse_storage *storage = (struct pulse_storage *)modules[module_id].data;
+    const char *dev = storage->device_type == DEVICE_TYPE_INPUT ? "source" : "sink";
+    const char *name = storage->device_type == DEVICE_TYPE_INPUT ? "SOURCE" : "SINK";
+    char cmd[160];
 
     switch (btn) {
     case 2:
@@ -351,16 +355,14 @@ static void alter(size_t module_id, uint64_t btn) {
         );
         break;
     case 4:
-        system(
-            storage->device_type == DEVICE_TYPE_INPUT ? "pactl set-source-volume @DEFAULT_SOURCE@ +5%"
-                                                      : "pactl set-sink-volume @DEFAULT_SINK@ +5%"
-        );
-        break;
     case 5:
-        system(
-            storage->device_type == DEVICE_TYPE_INPUT ? "pactl set-source-volume @DEFAULT_SOURCE@ -5%"
-                                                      : "pactl set-sink-volume @DEFAULT_SINK@ -5%"
-        );
+        if (btn == 5 && storage->volume < PA_VOLUME_NORM * 0.113)
+            snprintf(
+                cmd, sizeof(cmd), "pactl set-%s-volume @DEFAULT_%s@ %u", dev, name, (unsigned)(PA_VOLUME_NORM * 0.1)
+            );
+        else
+            snprintf(cmd, sizeof(cmd), "pactl set-%s-volume @DEFAULT_%s@ %s3dB", dev, name, btn == 4 ? "+" : "-");
+        system(cmd);
         break;
     }
 }
