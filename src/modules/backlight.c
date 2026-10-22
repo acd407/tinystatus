@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>
+#include <math.h>
 #include <module_base.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -30,10 +31,10 @@ static void update(size_t module_id) {
     }
 
     // 处理事件
+    uint64_t max_raw = max(read_uint64_file(data->max_brightness_path), 1);
     uint64_t brightness_percent =
-        read_uint64_file(data->brightness_path) * 100 / read_uint64_file(data->max_brightness_path);
-    assert(brightness_percent <= 100);
-    brightness_percent = (brightness_percent + 1) / 5 * 5;
+        min((uint64_t)(100.0 * pow((double)read_uint64_file(data->brightness_path) / max_raw, 1 / 2.2) + 2.5) / 5 * 5,
+            100);
 
     const char *icons[] = {
         "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
@@ -53,10 +54,10 @@ static void alter(size_t module_id, uint64_t btn) {
     (void)module_id;
     switch (btn) {
     case 4: // up
-        system("brightnessctl --class=backlight set +10% >/dev/null &");
+        system("brightnessctl --class=backlight -e2.2 set +10% >/dev/null &");
         break;
     case 5: // down
-        system("brightnessctl --class=backlight set 10%- >/dev/null &");
+        system("brightnessctl --class=backlight -e2.2 set 10%- >/dev/null &");
         break;
     }
 }
