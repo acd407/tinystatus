@@ -342,7 +342,7 @@ static void alter(size_t module_id, uint64_t btn) {
 
     switch (btn) {
     case 2:
-        system(storage->device_type == DEVICE_TYPE_INPUT ? "pwvucontrol -t 3 &" : "pwvucontrol &");
+        system(storage->device_type == DEVICE_TYPE_INPUT ? "pavucontrol -t 3 &" : "pavucontrol &");
         break;
     case 3:
         system(
