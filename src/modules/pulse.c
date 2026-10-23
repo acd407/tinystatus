@@ -357,8 +357,10 @@ static void alter(size_t module_id, uint64_t btn) {
     case 4:
     case 5:
         if (btn == 5 && storage->volume < PA_VOLUME_NORM * 0.113)
+            snprintf(cmd, sizeof(cmd), "pactl set-%s-volume @DEFAULT_%s@ 0", dev, name);
+        else if (btn == 4 && !storage->volume)
             snprintf(
-                cmd, sizeof(cmd), "pactl set-%s-volume @DEFAULT_%s@ %u", dev, name, (unsigned)(PA_VOLUME_NORM * 0.1)
+                cmd, sizeof(cmd), "pactl set-%s-volume @DEFAULT_%s@ %u", dev, name, (unsigned)(PA_VOLUME_NORM * 0.1122)
             );
         else
             snprintf(cmd, sizeof(cmd), "pactl set-%s-volume @DEFAULT_%s@ %s3dB", dev, name, btn == 4 ? "+" : "-");
